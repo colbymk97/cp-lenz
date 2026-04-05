@@ -135,9 +135,18 @@ interface IngestionPipeline {
   reingest(dataSourceId: string): Promise<void>;
   removeDataSource(dataSourceId: string): Promise<void>;
 }
+
+interface IngestionQueue {
+  enqueue(dataSourceId: string): void;
+  readonly concurrencyLimit: number;    // default: 3
+  readonly running: ReadonlySet<string>;
+  readonly pending: readonly string[];
+}
 ```
 
 Pipeline steps: `fileFilter → chunker → embeddingProvider → storage`
+
+The `IngestionQueue` manages parallel indexing with a concurrency limit of 3. Data sources enter the queue and are processed as slots become available. The sidebar reflects real-time queue state.
 
 ### Chunking Strategy (Recommendation)
 
@@ -465,11 +474,6 @@ Contributed via `package.json` → `contributes.configuration`:
     "default": "openai",
     "description": "Embedding provider to use for indexing."
   },
-  "repoLens.embedding.openai.apiKey": {
-    "type": "string",
-    "default": "",
-    "description": "OpenAI API key for embeddings. Supports ${env:OPENAI_API_KEY} syntax."
-  },
   "repoLens.embedding.openai.model": {
     "type": "string",
     "default": "text-embedding-3-small",
@@ -503,61 +507,51 @@ Contributed via `package.json` → `contributes.configuration`:
 
 ---
 
-## 8. Decisions Needing Your Input
+## 8. Finalized Decisions
 
-### 1. API key storage: VS Code settings vs. SecretStorage?
+### 1. API key storage → SecretStorage + env var fallback
 
-The brief says VS Code settings with `${env:OPENAI_API_KEY}` support. VS Code settings are stored in plaintext JSON. The alternative is `vscode.SecretStorage` (OS keychain-backed). Options:
+`vscode.SecretStorage` (OS keychain-backed) is the primary storage for API keys.
+A command "RepoLens: Set OpenAI API Key" writes to SecretStorage. The
+`${env:OPENAI_API_KEY}` environment variable is supported as fallback. Raw API
+keys are never stored in `settings.json`. Resolution order:
 
-- **A)** Settings only (simpler, user manages their own env vars)
-- **B)** SecretStorage as primary, settings as fallback (more secure, more code)
-- **C)** SecretStorage only (most secure, but no `settings.json` visibility)
+1. SecretStorage
+2. `${env:OPENAI_API_KEY}`
+3. Prompt user to set key
 
-**My recommendation:** B — SecretStorage primary with env var fallback. Set the key via a command ("RepoLens: Set OpenAI API Key") that writes to SecretStorage. Support `${env:OPENAI_API_KEY}` as fallback. Never store raw keys in `settings.json`.
+### 2. Embedding dimension migration → Drop + re-index
 
-### 2. Embedding dimension migration strategy
+When the embedding provider or model changes (different vector dimensions), the
+`embeddings` vec0 table is dropped and recreated with the new dimension. All
+data sources are queued for full re-index. A confirmation dialog warns the user
+before proceeding. Model changes are expected to be rare.
 
-If a user switches from `text-embedding-3-small` (1536d) to a different model (e.g., future Ollama model at 768d), the vec0 table dimension is fixed at creation time. Options:
+### 3. GitHub API strategy → Git Trees + Blobs API
 
-- **A)** Drop and recreate the embeddings table + trigger full re-index of all data sources
-- **B)** Create a new embeddings table per model, keep old one around
+Use the Git Trees API (`GET /repos/{owner}/{repo}/git/trees/{sha}?recursive=1`)
+to list the entire file tree in one request. Fetch file contents via the Git
+Blobs API (`GET /repos/{owner}/{repo}/git/blobs/{sha}`), batched with
+concurrency control to stay within rate limits. This minimizes API calls
+compared to per-file Contents API. Git clone via subprocess is reserved as a
+v1.1 optimization for very large repos.
 
-**My recommendation:** A — drop and re-index. Simpler, and model changes should be rare. Show a confirmation dialog warning the user.
+### 4. Token counting → Provider-aware (tiktoken for OpenAI)
 
-### 3. GitHub API rate limiting strategy
+Use `tiktoken` (WASM build, ~2MB) for accurate token counting when using
+OpenAI embedding models. The `EmbeddingProvider` interface exposes an optional
+`countTokens(text: string): number` method. For providers without a tokenizer
+(future Ollama support), fall back to `Math.ceil(text.length / 4)`.
 
-Fetching file contents for a large repo (thousands of files) via the GitHub API can hit rate limits. Options:
+### 5. Concurrent indexing → Parallel with concurrency limit
 
-- **A)** Use the Git Trees API to list files + Git Blobs API for content (more efficient, fewer requests)
-- **B)** Use the Contents API per file (simpler, more requests)
-- **C)** Clone via `git` subprocess (fastest for large repos, requires git installed)
+Multiple data sources can index in parallel with a concurrency limit of 3.
+An ingestion queue manages scheduling. The sidebar shows per-source status
+(queued / indexing / ready / error). This avoids blocking users who add
+several repos at once.
 
-**My recommendation:** A for v1. The Trees API returns the entire file tree in one request. Blob fetching can be batched. Reserve C as a v1.1 optimization for very large repos.
+### 6. Tool naming → Auto-generated with user override
 
-### 4. Chunking: token counting implementation
-
-Accurate token counting for chunk sizing requires a tokenizer. Options:
-
-- **A)** Use `tiktoken` (OpenAI's tokenizer, accurate, ~2MB wasm)
-- **B)** Estimate tokens as `chars / 4` (fast, no dependency, ~10% inaccurate)
-- **C)** Use `tiktoken` for OpenAI provider, approximation for others
-
-**My recommendation:** C — provider-aware. For v1 (OpenAI only), use tiktoken. The embedding interface can expose an optional `countTokens` method.
-
-### 5. Concurrent indexing
-
-Should multiple data sources be indexed in parallel or sequentially?
-
-- **A)** Sequential (simpler, predictable resource usage)
-- **B)** Parallel with concurrency limit of 2-3 (faster for users with many repos)
-
-**My recommendation:** A for v1 with a queue. One data source indexes at a time. The queue is visible in the sidebar. Parallel indexing is a good v1.1 enhancement.
-
-### 6. Tool name format
-
-The Chat Tools API has naming constraints. Should tool names be:
-
-- **A)** Free-form with validation (user picks `vscode_api`, we validate)
-- **B)** Auto-generated from repo name with user override (`microsoft_vscode`)
-
-**My recommendation:** B — auto-generate a sensible default (`{owner}_{repo}`) that the user can edit during the wizard. Validate: alphanumeric + underscores only, no spaces.
+Default tool name is auto-generated as `{owner}_{repo}` (e.g., `microsoft_vscode`).
+Users can edit the name during the Add Repository wizard. Validation enforces
+alphanumeric characters and underscores only, no spaces, max 64 characters.
