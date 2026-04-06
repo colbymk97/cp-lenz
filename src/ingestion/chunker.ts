@@ -11,23 +11,25 @@ export interface ChunkerOptions {
   countTokens: (text: string) => number;
 }
 
-const DEFAULT_OPTIONS: ChunkerOptions = {
-  maxTokens: 512,
-  overlapTokens: 64,
-  countTokens: (text: string) => Math.ceil(text.length / 4),
-};
+const DEFAULT_MAX_TOKENS = 512;
+const DEFAULT_OVERLAP_TOKENS = 64;
+const DEFAULT_COUNT_TOKENS = (text: string): number => Math.ceil(text.length / 4);
 
 export class Chunker {
-  private readonly options: ChunkerOptions;
+  private readonly maxTokens: number;
+  private readonly overlapTokens: number;
+  private readonly countTokens: (text: string) => number;
 
   constructor(options?: Partial<ChunkerOptions>) {
-    this.options = { ...DEFAULT_OPTIONS, ...options };
+    this.maxTokens = options?.maxTokens ?? DEFAULT_MAX_TOKENS;
+    this.overlapTokens = options?.overlapTokens ?? DEFAULT_OVERLAP_TOKENS;
+    this.countTokens = options?.countTokens ?? DEFAULT_COUNT_TOKENS;
   }
 
   chunkFile(content: string, _filePath: string): Chunk[] {
-    const lines = content.split('\n');
-    if (lines.length === 0) return [];
+    if (!content) return [];
 
+    const lines = content.split('\n');
     const chunks: Chunk[] = [];
     let startIdx = 0;
 
@@ -35,10 +37,12 @@ export class Chunker {
       let endIdx = startIdx;
       let currentTokens = 0;
 
-      // Expand chunk until we hit the token limit
+      // Expand chunk line by line until we hit the token limit
       while (endIdx < lines.length) {
-        const lineTokens = this.options.countTokens(lines[endIdx] + '\n');
-        if (currentTokens + lineTokens > this.options.maxTokens && endIdx > startIdx) {
+        const lineText = endIdx < lines.length - 1 ? lines[endIdx] + '\n' : lines[endIdx];
+        const lineTokens = this.countTokens(lineText);
+
+        if (currentTokens + lineTokens > this.maxTokens && endIdx > startIdx) {
           break;
         }
         currentTokens += lineTokens;
@@ -48,16 +52,19 @@ export class Chunker {
       const chunkContent = lines.slice(startIdx, endIdx).join('\n');
       chunks.push({
         content: chunkContent,
-        startLine: startIdx + 1,  // 1-based
-        endLine: endIdx,          // 1-based, inclusive
+        startLine: startIdx + 1, // 1-based
+        endLine: endIdx,         // 1-based, inclusive
         tokenCount: currentTokens,
       });
 
-      // Advance with overlap
-      const overlapLines = this.computeOverlapLines(lines, endIdx, this.options.overlapTokens);
-      startIdx = endIdx - overlapLines;
+      if (endIdx >= lines.length) break;
 
-      // Ensure forward progress
+      // Compute overlap: walk backwards from endIdx to find how many
+      // lines fit within overlapTokens
+      const overlapStart = this.findOverlapStart(lines, endIdx, this.overlapTokens);
+      startIdx = overlapStart;
+
+      // Guarantee forward progress
       if (startIdx <= chunks[chunks.length - 1].startLine - 1) {
         startIdx = endIdx;
       }
@@ -66,17 +73,15 @@ export class Chunker {
     return chunks;
   }
 
-  private computeOverlapLines(
-    lines: string[],
-    endIdx: number,
-    overlapTokens: number,
-  ): number {
+  private findOverlapStart(lines: string[], endIdx: number, overlapTokens: number): number {
     let tokens = 0;
-    let count = 0;
-    for (let i = endIdx - 1; i >= 0 && tokens < overlapTokens; i--) {
-      tokens += this.options.countTokens(lines[i] + '\n');
-      count++;
+    let idx = endIdx;
+    while (idx > 0) {
+      idx--;
+      const lineText = idx < lines.length - 1 ? lines[idx] + '\n' : lines[idx];
+      tokens += this.countTokens(lineText);
+      if (tokens >= overlapTokens) break;
     }
-    return count;
+    return idx;
   }
 }

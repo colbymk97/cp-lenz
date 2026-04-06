@@ -1,33 +1,60 @@
 import * as crypto from 'crypto';
-import * as vscode from 'vscode';
-import { ConfigManager } from '../config/configManager';
+import { DataSourceConfig } from '../config/configSchema';
 import { EmbeddingProvider } from '../embedding/embeddingProvider';
-import { EmbeddingProviderRegistry } from '../embedding/registry';
 import { GitHubFetcher } from '../sources/github/githubFetcher';
 import { FileFilter } from './fileFilter';
 import { Chunker } from './chunker';
 import { ChunkStore, ChunkRecord } from '../storage/chunkStore';
 import { EmbeddingStore } from '../storage/embeddingStore';
 import { SyncStore } from '../storage/syncStore';
-import { Logger } from '../util/logger';
 
 const MAX_CONCURRENCY = 3;
 
-export class IngestionPipeline implements vscode.Disposable {
+/**
+ * Minimal interface for config access — decoupled from VS Code.
+ */
+export interface PipelineConfigSource {
+  getDataSource(id: string): DataSourceConfig | undefined;
+  getDefaultExcludePatterns(): string[];
+  updateDataSource(id: string, updates: Partial<DataSourceConfig>): void;
+}
+
+/**
+ * Minimal interface for embedding provider resolution.
+ */
+export interface PipelineEmbeddingSource {
+  getProvider(): Promise<EmbeddingProvider>;
+}
+
+/**
+ * Minimal logger interface — decoupled from VS Code OutputChannel.
+ */
+export interface PipelineLogger {
+  info(message: string): void;
+  warn(message: string): void;
+  error(message: string): void;
+}
+
+export class IngestionPipeline {
   private readonly queue: string[] = [];
   private readonly running = new Set<string>();
-  private readonly chunker: Chunker;
 
   constructor(
-    private readonly configManager: ConfigManager,
-    private readonly providerRegistry: EmbeddingProviderRegistry,
+    private readonly config: PipelineConfigSource,
+    private readonly embeddingSource: PipelineEmbeddingSource,
     private readonly fetcher: GitHubFetcher,
     private readonly chunkStore: ChunkStore,
     private readonly embeddingStore: EmbeddingStore,
     private readonly syncStore: SyncStore,
-    private readonly logger: Logger,
-  ) {
-    this.chunker = new Chunker();
+    private readonly logger: PipelineLogger,
+  ) {}
+
+  get queueSize(): number {
+    return this.queue.length;
+  }
+
+  get runningCount(): number {
+    return this.running.size;
   }
 
   enqueue(dataSourceId: string): void {
@@ -35,7 +62,7 @@ export class IngestionPipeline implements vscode.Disposable {
       return;
     }
     this.queue.push(dataSourceId);
-    this.configManager.updateDataSource(dataSourceId, { status: 'queued' });
+    this.config.updateDataSource(dataSourceId, { status: 'queued' });
     this.processQueue();
   }
 
@@ -50,15 +77,15 @@ export class IngestionPipeline implements vscode.Disposable {
     }
   }
 
-  private async ingestDataSource(dataSourceId: string): Promise<void> {
-    const ds = this.configManager.getDataSource(dataSourceId);
+  async ingestDataSource(dataSourceId: string): Promise<void> {
+    const ds = this.config.getDataSource(dataSourceId);
     if (!ds) return;
 
     const syncId = crypto.randomUUID();
     let commitSha: string | null = null;
 
     try {
-      this.configManager.updateDataSource(dataSourceId, { status: 'indexing' });
+      this.config.updateDataSource(dataSourceId, { status: 'indexing' });
       this.logger.info(`Indexing ${ds.owner}/${ds.repo}@${ds.branch}`);
 
       // Get current HEAD
@@ -74,25 +101,32 @@ export class IngestionPipeline implements vscode.Disposable {
       // Filter files
       const filter = new FileFilter(
         ds.includePatterns,
-        [...ds.excludePatterns, ...this.configManager.getConfig().defaultExcludePatterns],
+        [...ds.excludePatterns, ...this.config.getDefaultExcludePatterns()],
       );
       const filteredEntries = tree.filter((entry) => filter.matches(entry.path));
 
       this.logger.info(`Fetching ${filteredEntries.length} files`);
 
       // Clear existing data for this source (full re-index)
+      const oldChunkIds = this.chunkStore.getChunkIdsByDataSource(dataSourceId);
+      this.embeddingStore.deleteByChunkIds(oldChunkIds);
       this.chunkStore.deleteByDataSource(dataSourceId);
 
       // Fetch file contents
       const files = await this.fetcher.fetchFiles(ds.owner, ds.repo, filteredEntries);
 
-      // Get embedding provider
-      const provider = await this.providerRegistry.getProvider();
+      // Get embedding provider and build chunker with its tokenizer
+      const provider = await this.embeddingSource.getProvider();
+      const chunker = new Chunker({
+        countTokens: provider.countTokens
+          ? (text: string) => provider.countTokens!(text)
+          : undefined,
+      });
 
       // Chunk all files
       const allChunks: ChunkRecord[] = [];
       for (const file of files) {
-        const chunks = this.chunker.chunkFile(file.content, file.path);
+        const chunks = chunker.chunkFile(file.content, file.path);
         for (const chunk of chunks) {
           allChunks.push({
             id: crypto.randomUUID(),
@@ -113,7 +147,7 @@ export class IngestionPipeline implements vscode.Disposable {
       await this.embedChunks(allChunks, provider);
 
       // Update state
-      this.configManager.updateDataSource(dataSourceId, {
+      this.config.updateDataSource(dataSourceId, {
         status: 'ready',
         lastSyncedAt: new Date().toISOString(),
         lastSyncCommitSha: commitSha,
@@ -122,7 +156,7 @@ export class IngestionPipeline implements vscode.Disposable {
       this.logger.info(`Indexed ${allChunks.length} chunks from ${files.length} files`);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      this.configManager.updateDataSource(dataSourceId, {
+      this.config.updateDataSource(dataSourceId, {
         status: 'error',
         errorMessage: message,
       });
@@ -151,8 +185,7 @@ export class IngestionPipeline implements vscode.Disposable {
   }
 
   async removeDataSource(dataSourceId: string): Promise<void> {
-    const chunks = this.chunkStore.getByDataSource(dataSourceId);
-    const chunkIds = chunks.map((c) => c.id);
+    const chunkIds = this.chunkStore.getChunkIdsByDataSource(dataSourceId);
     this.embeddingStore.deleteByChunkIds(chunkIds);
     this.chunkStore.deleteByDataSource(dataSourceId);
   }

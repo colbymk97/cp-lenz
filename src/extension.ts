@@ -96,7 +96,7 @@ export function activate(context: vscode.ExtensionContext): void {
   // Disposables
   context.subscriptions.push(
     configManager,
-    pipeline,
+    { dispose: () => pipeline.dispose() },
     dataSourceManager,
     toolManager,
     scheduler,
