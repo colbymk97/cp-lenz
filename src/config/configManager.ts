@@ -49,6 +49,10 @@ export class ConfigManager implements vscode.Disposable {
     return this.config.dataSources;
   }
 
+  getDefaultExcludePatterns(): string[] {
+    return this.config.defaultExcludePatterns;
+  }
+
   addDataSource(ds: DataSourceConfig): void {
     this.config.dataSources.push(ds);
     this.save();
