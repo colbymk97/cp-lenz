@@ -4,6 +4,10 @@
   "description": "Use any GitHub repository as RAG context for Copilot — query codebases, docs, and institutional knowledge without leaving VS Code.",
   "version": "0.0.1",
   "publisher": "repolens",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/colbymk97/repo-lens.git"
+  },
   "license": "MIT",
   "engines": {
     "vscode": "^1.99.0"
@@ -158,7 +162,8 @@
     "lint": "eslint src/",
     "test": "vitest run",
     "test:watch": "vitest",
-    "package": "vsce package"
+    "package": "vsce package",
+    "dev:install": "bash scripts/dev-install.sh"
   },
   "dependencies": {
     "better-sqlite3": "^11.7.0",

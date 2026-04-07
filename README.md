@@ -20,7 +20,7 @@ RepoLens indexes GitHub repositories into a local SQLite vector database and exp
 
 ## Setup
 
-1. Install the extension (see [Installing Locally](#installing-locally) or grab a release VSIX from [Releases](../../releases))
+1. Install the extension (see [Installing Locally](#installing-locally) or grab a release VSIX from [Releases](https://github.com/colbymk97/repo-lens/releases))
 2. Run **RepoLens: Set OpenAI API Key** from the command palette
 3. Open the RepoLens sidebar and add a repository
 4. Wait for indexing to complete, then ask Copilot about it
@@ -29,7 +29,7 @@ RepoLens indexes GitHub repositories into a local SQLite vector database and exp
 
 ### From a release VSIX
 
-Download the `.vsix` file from the [Releases](../../releases) page, then:
+Download the `.vsix` file from the [Releases](https://github.com/colbymk97/repo-lens/releases) page, then:
 
 ```bash
 code --install-extension repolens-0.0.1.vsix
@@ -40,7 +40,7 @@ Or via the VS Code UI: Extensions panel → `...` menu → **Install from VSIX..
 ### Build and install from source
 
 ```bash
-git clone https://github.com/colbyking/Lens.git
+git clone https://github.com/colbymk97/repo-lens.git
 cd Lens
 npm install
 npm run build
@@ -73,9 +73,18 @@ npm run watch          # Incremental compile on save
 npm run lint           # ESLint
 npm test               # Vitest unit tests
 npm run package        # Build VSIX (runs vsce package)
+npm run dev:install    # Build, install, and open a new VS Code window
 ```
 
 > **Apple Silicon note:** Storage tests (`test/unit/storage/`) crash locally when Node runs as x64 under Rosetta 2 — `sqlite-vec` uses AVX instructions Rosetta doesn't support. These tests pass on native x86_64 / GitHub CI. Embedding tests always pass.
+
+### Viewing logs
+
+RepoLens writes to a VS Code Output Channel. To open it:
+
+**View → Output**, then select **RepoLens** from the dropdown in the top-right of the panel.
+
+To enable verbose logging, set `repoLens.log.level` to `"debug"` in your VS Code settings — this surfaces chunking, embedding, and sync details.
 
 ## CI and Releases
 
@@ -96,7 +105,7 @@ git tag v0.0.1-alpha.1
 git push origin v0.0.1-alpha.1
 ```
 
-The VSIX will be attached to the GitHub release automatically. Download it from the [Releases](../../releases) page to test.
+The VSIX will be attached to the GitHub release automatically. Download it from the [Releases](https://github.com/colbymk97/repo-lens/releases) page to test.
 
 ### Publishing a stable release
 
