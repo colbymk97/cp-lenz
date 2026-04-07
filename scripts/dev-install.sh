@@ -32,9 +32,7 @@ if [[ "$(uname -s)" == "Darwin" && "$(uname -m)" == "arm64" ]]; then
     echo "==> Detected x64 Node on arm64 Mac — rebuilding native modules for arm64..."
 
     # Re-fetch the arm64 prebuilt binary for better-sqlite3
-    cd node_modules/better-sqlite3
-    npx prebuild-install -r napi --arch arm64 || node-gyp rebuild --release --arch=arm64
-    cd "$ROOT"
+    (cd node_modules/better-sqlite3 && npx prebuild-install --arch arm64 --force)
 
     # Ensure the arm64 sqlite-vec optional dependency is present
     npm install --no-save sqlite-vec-darwin-arm64 2>/dev/null || true
