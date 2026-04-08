@@ -31,7 +31,22 @@
       "Bash(arch -arm64 npx --yes @electron/rebuild -v \"39.8.3\" --arch arm64)",
       "Bash(xcrun --sdk macosx --show-sdk-path)",
       "Bash(SDKROOT=$\\(xcrun --sdk macosx --show-sdk-path\\) npx --yes @electron/rebuild -v \"39.8.3\" --arch arm64)",
-      "Bash(DEVELOPER_DIR=/Library/Developer/CommandLineTools npx --yes @electron/rebuild -v \"39.8.3\" --arch arm64)"
+      "Bash(DEVELOPER_DIR=/Library/Developer/CommandLineTools npx --yes @electron/rebuild -v \"39.8.3\" --arch arm64)",
+      "Bash(code:*)",
+      "Bash(npx:*)",
+      "Bash(pkgutil --pkg-info=com.apple.pkg.CLTools_Executables)",
+      "Read(//Library/Developer/CommandLineTools/usr/bin/**)",
+      "Bash(cc --version)",
+      "Bash(SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk npx:*)",
+      "Bash(softwareupdate --list)",
+      "Read(//Library/Developer/CommandLineTools/SDKs/**)",
+      "Read(//Library/Developer/CommandLineTools/usr/lib/**)",
+      "Bash(curl -s https://api.github.com/repos/WiseLibs/better-sqlite3/releases/tags/v11.10.0)",
+      "Bash(DEVELOPER_DIR=/Library/Developer/CommandLineTools SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk npx:*)",
+      "Bash(node_modules/.bin/electron-rebuild:*)",
+      "Bash(npm show:*)",
+      "Bash(curl -s https://api.github.com/repos/WiseLibs/better-sqlite3/releases/tags/v12.8.0)",
+      "Bash(curl -s https://api.github.com/repos/WiseLibs/better-sqlite3/releases/latest)"
     ]
   }
 }
