@@ -20,6 +20,7 @@ export class ToolManager implements vscode.Disposable {
 
   registerAll(): void {
     this.registerGlobalSearchTool();
+    this.syncRegistrations();
   }
 
   private registerGlobalSearchTool(): void {
@@ -39,7 +40,43 @@ export class ToolManager implements vscode.Disposable {
   }
 
   private syncRegistrations(): void {
-    // No-op: only the static global search tool is registered
+    const configTools = this.configManager.getTools();
+    const desiredNames = new Set(
+      configTools.map((t) => this.registrationName(t.name)),
+    );
+
+    // Unregister tools no longer in config
+    for (const [key, disposable] of this.registeredTools) {
+      if (key === '__global__') continue;
+      if (!desiredNames.has(key)) {
+        disposable.dispose();
+        this.registeredTools.delete(key);
+        this.logger.info(`Unregistered tool: ${key}`);
+      }
+    }
+
+    // Register new tools from config
+    for (const tool of configTools) {
+      const name = this.registrationName(tool.name);
+      if (!this.registeredTools.has(name)) {
+        const toolId = tool.id;
+        const disposable = vscode.lm.registerTool(name, {
+          invoke: async (options, token) => {
+            return this.toolHandler.handle(
+              toolId,
+              options as vscode.LanguageModelToolInvocationOptions<{ query: string }>,
+              token,
+            );
+          },
+        });
+        this.registeredTools.set(name, disposable);
+        this.logger.info(`Registered tool: ${name}`);
+      }
+    }
+  }
+
+  private registrationName(toolName: string): string {
+    return `repolens-${toolName}`;
   }
 
   dispose(): void {
