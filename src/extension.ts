@@ -83,6 +83,7 @@ export function activate(context: vscode.ExtensionContext): void {
     providerRegistry,
     retriever,
     contextBuilder,
+    fetcher,
   );
   const toolManager = new ToolManager(configManager, toolHandler, logger);
   toolManager.registerAll();

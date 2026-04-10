@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { ConfigManager } from '../config/configManager';
 import { ToolHandler } from './toolHandler';
+import { GET_FILE_TOOL } from './getFileTool';
 import { Logger } from '../util/logger';
 
 export class ToolManager implements vscode.Disposable {
@@ -20,6 +21,7 @@ export class ToolManager implements vscode.Disposable {
 
   registerAll(): void {
     this.registerGlobalSearchTool();
+    this.registerGetFileTool();
     this.syncRegistrations();
   }
 
@@ -39,6 +41,27 @@ export class ToolManager implements vscode.Disposable {
     this.logger.info('Registered global search tool');
   }
 
+  private registerGetFileTool(): void {
+    if (this.registeredTools.has('__getfile__')) return;
+
+    const disposable = vscode.lm.registerTool(GET_FILE_TOOL.name, {
+      invoke: async (options, token) => {
+        return this.toolHandler.handleGetFile(
+          options as vscode.LanguageModelToolInvocationOptions<{
+            repository: string;
+            filePath: string;
+            startLine?: number;
+            endLine?: number;
+          }>,
+          token,
+        );
+      },
+    });
+
+    this.registeredTools.set('__getfile__', disposable);
+    this.logger.info('Registered get file tool');
+  }
+
   private syncRegistrations(): void {
     const configTools = this.configManager.getTools();
     const desiredNames = new Set(
@@ -47,7 +70,7 @@ export class ToolManager implements vscode.Disposable {
 
     // Unregister tools no longer in config
     for (const [key, disposable] of this.registeredTools) {
-      if (key === '__global__') continue;
+      if (key === '__global__' || key === '__getfile__') continue;
       if (!desiredNames.has(key)) {
         disposable.dispose();
         this.registeredTools.delete(key);

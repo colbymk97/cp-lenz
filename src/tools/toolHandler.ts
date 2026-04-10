@@ -3,7 +3,11 @@ import { ConfigManager } from '../config/configManager';
 import { EmbeddingProviderRegistry } from '../embedding/registry';
 import { Retriever } from '../retrieval/retriever';
 import { ContextBuilder } from '../retrieval/contextBuilder';
+import { GitHubFetcher } from '../sources/github/githubFetcher';
 import { SETTING_KEYS } from '../config/settingsSchema';
+
+const MAX_LINES = 3000;
+const MAX_CHARS = 80_000;
 
 export class ToolHandler {
   constructor(
@@ -11,6 +15,7 @@ export class ToolHandler {
     private readonly providerRegistry: EmbeddingProviderRegistry,
     private readonly retriever: Retriever,
     private readonly contextBuilder: ContextBuilder,
+    private readonly fetcher: GitHubFetcher,
   ) {}
 
   async handle(
@@ -74,6 +79,84 @@ export class ToolHandler {
     return this.executeSearch(options.input.query, targetIds, searchedRepos);
   }
 
+  async handleGetFile(
+    options: vscode.LanguageModelToolInvocationOptions<{
+      repository: string;
+      filePath: string;
+      startLine?: number;
+      endLine?: number;
+    }>,
+    _token: vscode.CancellationToken,
+  ): Promise<vscode.LanguageModelToolResult> {
+    const { repository, filePath, startLine, endLine } = options.input;
+
+    const ds = this.configManager
+      .getDataSources()
+      .find((s) => `${s.owner}/${s.repo}`.toLowerCase() === repository.toLowerCase());
+
+    if (!ds) {
+      const available = this.configManager
+        .getDataSources()
+        .map((s) => `${s.owner}/${s.repo}`)
+        .join(', ') || 'none';
+      return new vscode.LanguageModelToolResult([
+        new vscode.LanguageModelTextPart(
+          `Repository "${repository}" is not indexed. Indexed repositories: ${available}`,
+        ),
+      ]);
+    }
+
+    try {
+      const raw = await this.fetcher.getFileContents(ds.owner, ds.repo, filePath, ds.branch);
+      const lines = raw.split('\n');
+      const totalLines = lines.length;
+
+      let sliced: string[];
+      let rangeStart: number;
+      let rangeEnd: number;
+      let truncated = false;
+
+      if (startLine !== undefined && endLine !== undefined) {
+        rangeStart = Math.max(1, startLine);
+        rangeEnd = Math.min(totalLines, endLine);
+        sliced = lines.slice(rangeStart - 1, rangeEnd);
+      } else {
+        rangeStart = 1;
+        let charCount = 0;
+        let cutAt = lines.length;
+        for (let i = 0; i < lines.length; i++) {
+          charCount += lines[i].length + 1;
+          if (i + 1 === MAX_LINES || charCount >= MAX_CHARS) {
+            cutAt = i + 1;
+            break;
+          }
+        }
+        truncated = cutAt < totalLines;
+        sliced = lines.slice(0, cutAt);
+        rangeEnd = cutAt;
+      }
+
+      const lang = langHint(filePath);
+      const header =
+        `**${ds.owner}/${ds.repo}** · Branch: \`${ds.branch}\` · \`${filePath}\`\n` +
+        `Lines ${rangeStart}–${rangeEnd} of ${totalLines}`;
+      const body = `\`\`\`${lang}\n${sliced.join('\n')}\n\`\`\``;
+      const notice = truncated
+        ? `\n[File truncated — showing lines 1–${rangeEnd} of ${totalLines}. ` +
+          `Call again with startLine/endLine to fetch a specific range.]`
+        : '';
+
+      return new vscode.LanguageModelToolResult([
+        new vscode.LanguageModelTextPart(`${header}\n\n${body}${notice}`),
+      ]);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return new vscode.LanguageModelToolResult([
+        new vscode.LanguageModelTextPart(message),
+      ]);
+    }
+  }
+
   private async executeSearch(
     query: string,
     dataSourceIds: string[],
@@ -102,4 +185,20 @@ export class ToolHandler {
       ]);
     }
   }
+}
+
+function langHint(filePath: string): string {
+  const dot = filePath.lastIndexOf('.');
+  if (dot === -1) return '';
+  const ext = filePath.slice(dot + 1).toLowerCase();
+  const map: Record<string, string> = {
+    ts: 'ts', tsx: 'tsx', js: 'js', jsx: 'jsx', mjs: 'js', cjs: 'js',
+    py: 'py', rb: 'rb', go: 'go', rs: 'rs',
+    java: 'java', kt: 'kt', cs: 'cs', cpp: 'cpp', c: 'c', h: 'h',
+    json: 'json', yaml: 'yaml', yml: 'yaml', toml: 'toml',
+    md: 'md', html: 'html', css: 'css', scss: 'scss',
+    sh: 'sh', bash: 'sh', zsh: 'sh',
+    sql: 'sql', graphql: 'graphql',
+  };
+  return map[ext] ?? '';
 }

@@ -189,6 +189,36 @@
           },
           "required": ["query"]
         }
+      },
+      {
+        "name": "repolens-get-file",
+        "toolReferenceName": "repolensGetFile",
+        "tags": ["repolens", "github", "file", "code"],
+        "displayName": "RepoLens: Get File",
+        "userDescription": "Fetch the full content of a file from an indexed GitHub repository.",
+        "modelDescription": "Fetch the full or partial content of a file from an indexed GitHub repository. Use this when search results reference a file and you need more context than the returned chunk provides. Provide startLine and endLine to fetch a specific section of a large file.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "repository": {
+              "type": "string",
+              "description": "The indexed repository in 'owner/repo' format (e.g. 'vercel/next.js'). Use the repository shown in search results."
+            },
+            "filePath": {
+              "type": "string",
+              "description": "Path to the file within the repository, as shown in search results."
+            },
+            "startLine": {
+              "type": "number",
+              "description": "Optional. First line to return (1-indexed). Use line numbers from search results."
+            },
+            "endLine": {
+              "type": "number",
+              "description": "Optional. Last line to return (1-indexed). Use line numbers from search results."
+            }
+          },
+          "required": ["repository", "filePath"]
+        }
       }
     ]
   },
