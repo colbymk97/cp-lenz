@@ -11,6 +11,13 @@ vi.mock('vscode', () => ({
 
 import * as vscode from 'vscode';
 import { AddRepoWizard } from '../../../src/ui/wizard/addRepoWizard';
+import { REPO_TYPE_PRESETS } from '../../../src/config/repoTypePresets';
+
+const generalPresetItem = {
+  label: 'General codebase',
+  description: 'Index all source files with default filters',
+  preset: REPO_TYPE_PRESETS.general,
+};
 
 describe('AddRepoWizard', () => {
   let resolver: any;
@@ -62,6 +69,8 @@ describe('AddRepoWizard', () => {
     );
     // Branch
     (vscode.window.showInputBox as any).mockResolvedValueOnce('main');
+    // Type selection (new step)
+    (vscode.window.showQuickPick as any).mockResolvedValueOnce(generalPresetItem);
     // Include patterns
     (vscode.window.showInputBox as any).mockResolvedValueOnce('src/**/*.ts');
     // Sync schedule
@@ -88,6 +97,7 @@ describe('AddRepoWizard', () => {
         owner: 'acme',
         repo: 'widgets',
         branch: 'main',
+        type: 'general',
         includePatterns: ['src/**/*.ts'],
         syncSchedule: 'onStartup',
       }),
@@ -101,6 +111,35 @@ describe('AddRepoWizard', () => {
     );
     expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
       expect.stringContaining('acme/widgets'),
+    );
+  });
+
+  it('pre-populates include patterns from the selected type preset', async () => {
+    const actionsPresetItem = {
+      label: 'GitHub Actions library',
+      description: 'action.yml / action.yaml files — one chunk per action',
+      preset: REPO_TYPE_PRESETS['github-actions-library'],
+    };
+
+    (vscode.window.showQuickPick as any)
+      .mockResolvedValueOnce({ label: 'Paste URL', value: 'url' })
+      .mockResolvedValueOnce(actionsPresetItem)
+      .mockResolvedValueOnce({ label: 'On Startup', value: 'onStartup' });
+    (vscode.window.showInputBox as any)
+      .mockResolvedValueOnce('https://github.com/acme/actions')
+      .mockResolvedValueOnce('main')
+      .mockImplementationOnce(async (opts: any) => opts.value) // accept pre-filled include value
+      .mockResolvedValueOnce('acme_actions')
+      .mockImplementationOnce(async (opts: any) => opts.value); // accept pre-filled description
+
+    const wizard = new AddRepoWizard(resolver, browser, dataSourceManager, configManager, embeddingRegistry);
+    await wizard.run();
+
+    expect(dataSourceManager.add).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'github-actions-library',
+        includePatterns: ['**/action.yml', '**/action.yaml', 'README.md'],
+      }),
     );
   });
 
@@ -125,6 +164,22 @@ describe('AddRepoWizard', () => {
     );
     // Branch cancelled
     (vscode.window.showInputBox as any).mockResolvedValueOnce(undefined);
+
+    const wizard = new AddRepoWizard(resolver, browser, dataSourceManager, configManager, embeddingRegistry);
+    await wizard.run();
+
+    expect(dataSourceManager.add).not.toHaveBeenCalled();
+  });
+
+  it('cancels when user dismisses type selection', async () => {
+    (vscode.window.showQuickPick as any).mockResolvedValueOnce({
+      label: 'Paste URL', value: 'url',
+    });
+    (vscode.window.showInputBox as any)
+      .mockResolvedValueOnce('https://github.com/acme/widgets')
+      .mockResolvedValueOnce('main');
+    // Type selection cancelled
+    (vscode.window.showQuickPick as any).mockResolvedValueOnce(undefined);
 
     const wizard = new AddRepoWizard(resolver, browser, dataSourceManager, configManager, embeddingRegistry);
     await wizard.run();
@@ -167,6 +222,8 @@ describe('AddRepoWizard', () => {
         label: 'acme/widgets',
         repo: { owner: 'acme', repo: 'widgets' },
       })
+      // type selection
+      .mockResolvedValueOnce(generalPresetItem)
       // sync schedule
       .mockResolvedValueOnce({ label: 'Manual', value: 'manual' });
 
@@ -185,21 +242,17 @@ describe('AddRepoWizard', () => {
   });
 
   it('handles empty include patterns', async () => {
-    setupFullFlow();
-    // Override include patterns to be empty
-    (vscode.window.showInputBox as any).mockReset();
+    (vscode.window.showQuickPick as any)
+      .mockResolvedValueOnce({ label: 'Paste URL', value: 'url' })
+      .mockResolvedValueOnce(generalPresetItem)
+      .mockResolvedValueOnce({ label: 'Manual', value: 'manual' });
+
     (vscode.window.showInputBox as any)
       .mockResolvedValueOnce('https://github.com/acme/widgets')
       .mockResolvedValueOnce('main')
       .mockResolvedValueOnce('') // empty include
       .mockResolvedValueOnce('acme_widgets')
       .mockResolvedValueOnce('Search acme/widgets');
-
-    // Re-setup quickpick
-    (vscode.window.showQuickPick as any).mockReset();
-    (vscode.window.showQuickPick as any)
-      .mockResolvedValueOnce({ label: 'Paste URL', value: 'url' })
-      .mockResolvedValueOnce({ label: 'Manual', value: 'manual' });
 
     const wizard = new AddRepoWizard(resolver, browser, dataSourceManager, configManager, embeddingRegistry);
     await wizard.run();

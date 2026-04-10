@@ -3,6 +3,7 @@ import { parseRepoUrl, isRepoUrlResult, GitHubResolver } from '../../sources/git
 import { RepoBrowser } from '../../sources/github/repoBrowser';
 import { DataSourceManager, AddDataSourceOptions } from '../../sources/dataSourceManager';
 import { DEFAULT_EXCLUDE_PATTERNS, ToolConfig } from '../../config/configSchema';
+import { REPO_TYPE_PRESETS } from '../../config/repoTypePresets';
 import { ConfigManager } from '../../config/configManager';
 import { EmbeddingProviderRegistry } from '../../embedding/registry';
 import * as crypto from 'crypto';
@@ -56,10 +57,24 @@ export class AddRepoWizard {
     });
     if (!branch) return;
 
-    // Step 4: Include patterns
+    // Step 4: Select repo type
+    const typeItems = Object.values(REPO_TYPE_PRESETS).map((p) => ({
+      label: p.displayName,
+      description: p.wizardDescription,
+      preset: p,
+    }));
+    const typeChoice = await vscode.window.showQuickPick(typeItems, {
+      placeHolder: 'What kind of repo is this?',
+      ignoreFocusOut: true,
+    });
+    if (!typeChoice) return;
+    const selectedPreset = typeChoice.preset;
+
+    // Step 5: Include patterns (pre-populated from preset)
     const includeInput = await vscode.window.showInputBox({
       prompt: 'Include patterns (comma-separated globs, leave empty for all files)',
       placeHolder: 'e.g. src/**/*.ts, docs/**/*.md',
+      value: selectedPreset.includePatterns.join(', '),
       ignoreFocusOut: true,
     });
     if (includeInput === undefined) return;
@@ -67,7 +82,7 @@ export class AddRepoWizard {
       ? includeInput.split(',').map((p) => p.trim()).filter(Boolean)
       : [];
 
-    // Step 5: Sync schedule
+    // Step 6: Sync schedule
     const schedule = await vscode.window.showQuickPick(
       [
         { label: 'On Startup', value: 'onStartup' as const },
@@ -78,7 +93,7 @@ export class AddRepoWizard {
     );
     if (!schedule) return;
 
-    // Step 6: Tool name
+    // Step 7: Tool name
     const defaultToolName = `${metadata.owner}_${metadata.repo}`.replace(/[^a-zA-Z0-9_]/g, '_');
     const toolName = await vscode.window.showInputBox({
       prompt: 'Tool name (alphanumeric and underscores only)',
@@ -89,10 +104,11 @@ export class AddRepoWizard {
     });
     if (!toolName) return;
 
-    // Step 7: Tool description
-    const defaultDescription = metadata.description
-      ? `Search ${metadata.owner}/${metadata.repo}: ${metadata.description}`
-      : `Search the ${metadata.owner}/${metadata.repo} codebase`;
+    // Step 8: Tool description (pre-populated from type template)
+    const defaultDescription = selectedPreset.toolDescriptionTemplate(
+      metadata.owner,
+      metadata.repo,
+    );
     const toolDescription = await vscode.window.showInputBox({
       prompt: 'Tool description (helps Copilot decide when to use this tool)',
       value: defaultDescription,
@@ -106,6 +122,7 @@ export class AddRepoWizard {
       owner: metadata.owner,
       repo: metadata.repo,
       branch,
+      type: selectedPreset.id,
       includePatterns,
       excludePatterns: [...DEFAULT_EXCLUDE_PATTERNS],
       syncSchedule: schedule.value,

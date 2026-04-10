@@ -136,6 +136,7 @@ describe('ConfigManager', () => {
       syncSchedule: 'manual',
       lastSyncedAt: null,
       lastSyncCommitSha: null,
+      type: 'general',
       status: 'queued',
     };
 
@@ -176,7 +177,7 @@ describe('ConfigManager', () => {
     manager.addDataSource({
       id: 'ds-1', repoUrl: '', owner: 'o', repo: 'r', branch: 'main',
       includePatterns: [], excludePatterns: [], syncSchedule: 'manual',
-      lastSyncedAt: null, lastSyncCommitSha: null, status: 'ready',
+      type: 'general', lastSyncedAt: null, lastSyncCommitSha: null, status: 'ready',
     });
     manager.addTool({ id: 't-1', name: 'tool', description: '', dataSourceIds: ['ds-1', 'ds-2'] });
     manager.flush();
@@ -196,7 +197,7 @@ describe('ConfigManager', () => {
     manager.addDataSource({
       id: 'ds-1', repoUrl: '', owner: 'o', repo: 'r', branch: 'main',
       includePatterns: [], excludePatterns: [], syncSchedule: 'manual',
-      lastSyncedAt: null, lastSyncCommitSha: null, status: 'ready',
+      type: 'general', lastSyncedAt: null, lastSyncCommitSha: null, status: 'ready',
     });
     manager.flush();
 
@@ -212,7 +213,7 @@ describe('ConfigManager', () => {
       manager.addDataSource({
         id: `ds-${i}`, repoUrl: '', owner: 'o', repo: `r${i}`, branch: 'main',
         includePatterns: [], excludePatterns: [], syncSchedule: 'manual',
-        lastSyncedAt: null, lastSyncCommitSha: null, status: 'ready',
+        type: 'general', lastSyncedAt: null, lastSyncCommitSha: null, status: 'ready',
       });
     }
 
@@ -235,7 +236,7 @@ describe('ConfigManager', () => {
     manager1.addDataSource({
       id: 'ds-1', repoUrl: '', owner: 'acme', repo: 'widgets', branch: 'main',
       includePatterns: ['**/*.ts'], excludePatterns: [], syncSchedule: 'daily',
-      lastSyncedAt: null, lastSyncCommitSha: null, status: 'ready',
+      type: 'general', lastSyncedAt: null, lastSyncCommitSha: null, status: 'ready',
     });
     manager1.flush();
     manager1.dispose();
@@ -256,7 +257,7 @@ describe('ConfigManager', () => {
     updated.dataSources.push({
       id: 'ext-1', repoUrl: '', owner: 'ext', repo: 'repo', branch: 'main',
       includePatterns: [], excludePatterns: [], syncSchedule: 'manual',
-      lastSyncedAt: null, lastSyncCommitSha: null, status: 'ready',
+      type: 'general', lastSyncedAt: null, lastSyncCommitSha: null, status: 'ready',
     });
     writeConfig(updated);
 
@@ -272,6 +273,36 @@ describe('ConfigManager', () => {
     const patterns = manager.getDefaultExcludePatterns();
     expect(patterns).toContain('**/node_modules/**');
     expect(patterns).toContain('**/dist/**');
+    manager.dispose();
+  });
+
+  it('migrates data sources without type to general on load', () => {
+    // Write a config that predates type awareness (no type field)
+    const legacyConfig = {
+      version: 1,
+      dataSources: [
+        {
+          id: 'legacy-ds',
+          repoUrl: 'https://github.com/old/repo',
+          owner: 'old',
+          repo: 'repo',
+          branch: 'main',
+          includePatterns: [],
+          excludePatterns: [],
+          syncSchedule: 'manual',
+          lastSyncedAt: null,
+          lastSyncCommitSha: null,
+          status: 'ready',
+          // no type field
+        },
+      ],
+      tools: [],
+      defaultExcludePatterns: [],
+    };
+    writeConfig(legacyConfig);
+
+    const manager = new ConfigManager(makeUri());
+    expect(manager.getDataSource('legacy-ds')?.type).toBe('general');
     manager.dispose();
   });
 });

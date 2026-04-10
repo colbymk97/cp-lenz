@@ -5,10 +5,13 @@ export interface Chunk {
   tokenCount: number;
 }
 
+export type ChunkingStrategy = 'token-split' | 'file-level' | 'markdown-heading';
+
 export interface ChunkerOptions {
   maxTokens: number;
   overlapTokens: number;
   countTokens: (text: string) => number;
+  strategy: ChunkingStrategy;
 }
 
 const DEFAULT_MAX_TOKENS = 512;
@@ -19,16 +22,83 @@ export class Chunker {
   private readonly maxTokens: number;
   private readonly overlapTokens: number;
   private readonly countTokens: (text: string) => number;
+  private readonly strategy: ChunkingStrategy;
 
   constructor(options?: Partial<ChunkerOptions>) {
     this.maxTokens = options?.maxTokens ?? DEFAULT_MAX_TOKENS;
     this.overlapTokens = options?.overlapTokens ?? DEFAULT_OVERLAP_TOKENS;
     this.countTokens = options?.countTokens ?? DEFAULT_COUNT_TOKENS;
+    this.strategy = options?.strategy ?? 'token-split';
   }
 
-  chunkFile(content: string, _filePath: string): Chunk[] {
+  chunkFile(content: string, filePath: string): Chunk[] {
     if (!content) return [];
+    if (this.strategy === 'file-level') return this.chunkAsWhole(content);
+    if (this.strategy === 'markdown-heading') return this.chunkByHeadings(content);
+    return this.chunkByTokens(content, filePath);
+  }
 
+  // One chunk spanning the entire file. Used for action.yml and workflow files
+  // where each file is a self-contained semantic unit.
+  private chunkAsWhole(content: string): Chunk[] {
+    const lines = content.split('\n');
+    return [{
+      content,
+      startLine: 1,
+      endLine: lines.length,
+      tokenCount: this.countTokens(content),
+    }];
+  }
+
+  // Split on Markdown headings (lines starting with '#'). Each heading and its
+  // following content becomes one chunk. Sections that exceed maxTokens are
+  // sub-chunked with the token-split strategy.
+  private chunkByHeadings(content: string): Chunk[] {
+    const lines = content.split('\n');
+    const chunks: Chunk[] = [];
+
+    // Collect sections: each entry is [startIdx, lines[]]
+    const sections: Array<{ startIdx: number; lines: string[] }> = [];
+    let sectionStart = 0;
+    let sectionLines: string[] = [];
+
+    for (let i = 0; i < lines.length; i++) {
+      const isHeading = lines[i].startsWith('#');
+      if (isHeading && sectionLines.length > 0) {
+        sections.push({ startIdx: sectionStart, lines: sectionLines });
+        sectionStart = i;
+        sectionLines = [];
+      }
+      sectionLines.push(lines[i]);
+    }
+    if (sectionLines.length > 0) {
+      sections.push({ startIdx: sectionStart, lines: sectionLines });
+    }
+
+    for (const section of sections) {
+      const sectionContent = section.lines.join('\n');
+      const tokenCount = this.countTokens(sectionContent);
+
+      if (tokenCount <= this.maxTokens) {
+        chunks.push({
+          content: sectionContent,
+          startLine: section.startIdx + 1,
+          endLine: section.startIdx + section.lines.length,
+          tokenCount,
+        });
+      } else {
+        // Section is too large — sub-chunk with token-split and adjust line numbers
+        const subChunks = this.chunkByTokens(sectionContent, '', section.startIdx);
+        chunks.push(...subChunks);
+      }
+    }
+
+    return chunks;
+  }
+
+  // Greedy token-based chunking with overlap. lineOffset shifts output line
+  // numbers when chunking a sub-section of a larger file (used by chunkByHeadings).
+  private chunkByTokens(content: string, _filePath: string, lineOffset: number = 0): Chunk[] {
     const lines = content.split('\n');
     const chunks: Chunk[] = [];
     let startIdx = 0;
@@ -52,8 +122,8 @@ export class Chunker {
       const chunkContent = lines.slice(startIdx, endIdx).join('\n');
       chunks.push({
         content: chunkContent,
-        startLine: startIdx + 1, // 1-based
-        endLine: endIdx,         // 1-based, inclusive
+        startLine: lineOffset + startIdx + 1, // 1-based
+        endLine: lineOffset + endIdx,          // 1-based, inclusive
         tokenCount: currentTokens,
       });
 
@@ -65,7 +135,7 @@ export class Chunker {
       startIdx = overlapStart;
 
       // Guarantee forward progress
-      if (startIdx <= chunks[chunks.length - 1].startLine - 1) {
+      if (startIdx <= chunks[chunks.length - 1].startLine - lineOffset - 1) {
         startIdx = endIdx;
       }
     }

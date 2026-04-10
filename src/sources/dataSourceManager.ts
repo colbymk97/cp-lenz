@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as crypto from 'crypto';
 import { ConfigManager } from '../config/configManager';
 import { DataSourceConfig } from '../config/configSchema';
+import { DataSourceType } from '../config/repoTypePresets';
 import { IngestionPipeline } from '../ingestion/pipeline';
 import { EmbeddingProviderRegistry } from '../embedding/registry';
 
@@ -10,6 +11,7 @@ export interface AddDataSourceOptions {
   owner: string;
   repo: string;
   branch: string;
+  type: DataSourceType;
   includePatterns: string[];
   excludePatterns: string[];
   syncSchedule: 'manual' | 'onStartup' | 'daily';

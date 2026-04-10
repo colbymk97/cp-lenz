@@ -29,7 +29,12 @@ export class ConfigManager implements vscode.Disposable {
   private load(): RepoLensConfig {
     try {
       const raw = fs.readFileSync(this.configPath, 'utf-8');
-      return JSON.parse(raw) as RepoLensConfig;
+      const config = JSON.parse(raw) as RepoLensConfig;
+      // Migration: data sources created before type awareness default to 'general'
+      for (const ds of config.dataSources) {
+        if (!ds.type) ds.type = 'general';
+      }
+      return config;
     } catch {
       // If the file exists but is corrupt, back it up
       if (fs.existsSync(this.configPath)) {
