@@ -122,6 +122,37 @@ export class GitHubFetcher {
     return results;
   }
 
+  async getFileContents(owner: string, repo: string, path: string, branch: string): Promise<string> {
+    await this.waitForRateLimit();
+    const token = await this.getToken();
+    const encodedPath = path.split('/').map(enc).join('/');
+    const res = await fetch(
+      `${GITHUB_API}/repos/${enc(owner)}/${enc(repo)}/contents/${encodedPath}?ref=${enc(branch)}`,
+      {
+        headers: {
+          ...githubHeaders(token),
+          Accept: 'application/vnd.github.raw+json',
+        },
+      },
+    );
+    this.updateRateLimit(res);
+
+    if (!res.ok) {
+      if (res.status === 404) {
+        throw new Error(
+          `File "${path}" was not found in ${owner}/${repo} on branch "${branch}". ` +
+          `The path may have changed since the last index.`,
+        );
+      }
+      if (res.status === 401 || res.status === 403) {
+        throw new Error(`Cannot access ${owner}/${repo}: insufficient token permissions.`);
+      }
+      throw new Error(`GitHub API error ${res.status}: ${res.statusText}`);
+    }
+
+    return res.text();
+  }
+
   async getBranchSha(owner: string, repo: string, branch: string): Promise<string> {
     const token = await this.getToken();
     const res = await fetch(

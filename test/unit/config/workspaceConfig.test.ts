@@ -59,6 +59,7 @@ function makeDs(owner: string, repo: string, branch = 'main', id = 'ds-1'): Data
   return {
     id, repoUrl: `https://github.com/${owner}/${repo}`,
     owner, repo, branch,
+    type: 'general',
     includePatterns: [], excludePatterns: [],
     syncSchedule: 'manual', lastSyncedAt: null, lastSyncCommitSha: null, status: 'ready',
   };
@@ -89,6 +90,7 @@ describe('WorkspaceConfigManager', () => {
         owner: 'acme',
         repo: 'widgets',
         branch: 'main',
+        type: 'general',
         includePatterns: ['src/**'],
         excludePatterns: ['**/*.test.ts'],
         syncSchedule: 'onStartup',

@@ -143,3 +143,104 @@ describe('Chunker', () => {
     expect(chunks.length).toBeGreaterThanOrEqual(2);
   });
 });
+
+describe('Chunker — file-level strategy', () => {
+  it('returns a single chunk for the entire file', () => {
+    const chunker = new Chunker({ strategy: 'file-level', maxTokens: 10 });
+    const content = 'line one\nline two\nline three\nline four\nline five';
+    const chunks = chunker.chunkFile(content, 'action.yml');
+
+    expect(chunks).toHaveLength(1);
+    expect(chunks[0].content).toBe(content);
+    expect(chunks[0].startLine).toBe(1);
+    expect(chunks[0].endLine).toBe(5);
+  });
+
+  it('returns empty array for empty content', () => {
+    const chunker = new Chunker({ strategy: 'file-level' });
+    expect(chunker.chunkFile('', 'empty.yml')).toEqual([]);
+  });
+
+  it('reports correct token count for a single-chunk file', () => {
+    const chunker = new Chunker({
+      strategy: 'file-level',
+      countTokens: wordCount,
+    });
+    const content = 'alpha bravo charlie\ndelta echo foxtrot';
+    const chunks = chunker.chunkFile(content, 'wf.yml');
+
+    expect(chunks[0].tokenCount).toBe(6);
+  });
+});
+
+describe('Chunker — markdown-heading strategy', () => {
+  it('splits content on # headings', () => {
+    const chunker = new Chunker({ strategy: 'markdown-heading', maxTokens: 1000 });
+    const content = [
+      '# Introduction',
+      'Some intro text.',
+      '',
+      '# Usage',
+      'Usage details here.',
+    ].join('\n');
+
+    const chunks = chunker.chunkFile(content, 'README.md');
+
+    expect(chunks).toHaveLength(2);
+    expect(chunks[0].content).toContain('# Introduction');
+    expect(chunks[1].content).toContain('# Usage');
+  });
+
+  it('uses 1-based line numbers relative to the original file', () => {
+    const chunker = new Chunker({ strategy: 'markdown-heading', maxTokens: 1000 });
+    const content = '# First\nfirst body\n# Second\nsecond body';
+    const chunks = chunker.chunkFile(content, 'doc.md');
+
+    expect(chunks[0].startLine).toBe(1);
+    expect(chunks[0].endLine).toBe(2);
+    expect(chunks[1].startLine).toBe(3);
+    expect(chunks[1].endLine).toBe(4);
+  });
+
+  it('sub-chunks oversized sections with token-split and preserves line offsets', () => {
+    const chunker = new Chunker({
+      strategy: 'markdown-heading',
+      maxTokens: 3,
+      overlapTokens: 0,
+      countTokens: wordCount,
+    });
+    // Section has 9 words → exceeds maxTokens 3 → sub-chunked into 3 pieces
+    const content = [
+      '# Big Section',
+      'one two three',
+      'four five six',
+      'seven eight nine',
+    ].join('\n');
+
+    const chunks = chunker.chunkFile(content, 'big.md');
+
+    expect(chunks.length).toBeGreaterThan(1);
+    // All sub-chunk startLines should be >= 1 (file-relative)
+    for (const chunk of chunks) {
+      expect(chunk.startLine).toBeGreaterThanOrEqual(1);
+      expect(chunk.endLine).toBeGreaterThanOrEqual(chunk.startLine);
+    }
+    // Last chunk should end at line 4
+    const lastChunk = chunks[chunks.length - 1];
+    expect(lastChunk.endLine).toBe(4);
+  });
+
+  it('handles files with no headings as a single section', () => {
+    const chunker = new Chunker({ strategy: 'markdown-heading', maxTokens: 1000 });
+    const content = 'No headings here.\nJust plain text.\n';
+    const chunks = chunker.chunkFile(content, 'plain.md');
+
+    expect(chunks).toHaveLength(1);
+    expect(chunks[0].startLine).toBe(1);
+  });
+
+  it('returns empty array for empty content', () => {
+    const chunker = new Chunker({ strategy: 'markdown-heading' });
+    expect(chunker.chunkFile('', 'empty.md')).toEqual([]);
+  });
+});

@@ -84,6 +84,7 @@ export function activate(context: vscode.ExtensionContext): void {
     retriever,
     contextBuilder,
     chunkStore,
+    fetcher,
   );
   const toolManager = new ToolManager(toolHandler, logger);
   toolManager.registerAll();
