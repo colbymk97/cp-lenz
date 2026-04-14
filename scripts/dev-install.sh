@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# dev-install.sh — build, install, and launch a fresh VS Code window with RepoLens active
+# dev-install.sh — build, install, and launch a fresh VS Code window with Yoink active
 
 set -euo pipefail
 
@@ -42,15 +42,15 @@ if [[ "$(uname -s)" == "Darwin" && "$(uname -m)" == "arm64" ]]; then
 fi
 
 echo "==> Packaging VSIX..."
-npx vsce package --no-dependencies --out repolens-dev.vsix
+npx vsce package --no-dependencies --out yoink-dev.vsix
 
 echo "==> Installing extension..."
-"$CODE" --install-extension repolens-dev.vsix --force
+"$CODE" --install-extension yoink-dev.vsix --force
 
 echo "==> Opening new VS Code window..."
 "$CODE" --new-window .
 
 echo ""
 echo "Done. To view logs:"
-echo "  VS Code → View → Output → select 'RepoLens' from the dropdown"
-echo "  Or set repoLens.log.level to 'debug' in settings for verbose output"
+echo "  VS Code → View → Output → select 'Yoink' from the dropdown"
+echo "  Or set yoink.log.level to 'debug' in settings for verbose output"

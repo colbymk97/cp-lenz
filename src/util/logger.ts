@@ -14,7 +14,7 @@ export class Logger implements vscode.Disposable {
   private readonly channel: vscode.OutputChannel;
 
   constructor() {
-    this.channel = vscode.window.createOutputChannel('RepoLens');
+    this.channel = vscode.window.createOutputChannel('Yoink');
   }
 
   debug(message: string): void {

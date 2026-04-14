@@ -1,12 +1,12 @@
 # Shareable Config — Design Document
 
-## 1. File Schema: `.vscode/repolens.json`
+## 1. File Schema: `.vscode/yoink.json`
 
-The shareable config is a strict subset of the internal `repolens.json`. It contains only the fields needed to reconstruct data sources and tools on another machine. All runtime state and credentials are stripped.
+The shareable config is a strict subset of the internal `yoink.json`. It contains only the fields needed to reconstruct data sources and tools on another machine. All runtime state and credentials are stripped.
 
 ```jsonc
 {
-  "$schema": "https://repolens.dev/schema/shareable-config.json",
+  "$schema": "https://yoink.dev/schema/shareable-config.json",
   "version": 1,
   "dataSources": [
     {
@@ -106,7 +106,7 @@ Detection runs once during `activate()`, after all core services are initialized
 
 ```
 1. Get workspace folders: vscode.workspace.workspaceFolders
-2. For each folder, check if {folder}/.vscode/repolens.json exists (fs.existsSync)
+2. For each folder, check if {folder}/.vscode/yoink.json exists (fs.existsSync)
 3. If found, parse the file and validate against ShareableConfig schema
 4. If valid, show a non-intrusive information message with "Import" and "Not Now" buttons
 5. If user clicks Import → run the merge algorithm
@@ -139,7 +139,7 @@ detector.detectAndPrompt();  // fire-and-forget (not awaited)
 
 ### Multi-root workspaces
 
-If multiple workspace folders contain `.vscode/repolens.json`, detect only the **first** one (primary workspace folder). This avoids conflicting prompts. The user can always import manually via the export/import commands if needed.
+If multiple workspace folders contain `.vscode/yoink.json`, detect only the **first** one (primary workspace folder). This avoids conflicting prompts. The user can always import manually via the export/import commands if needed.
 
 ### Re-prompt behavior
 
@@ -185,25 +185,25 @@ For each `ShareableTool` in the import:
 
 ### What the export command does
 
-1. Read the current `RepoLensConfig` from `ConfigManager`.
+1. Read the current `YoinkConfig` from `ConfigManager`.
 2. Map each `DataSourceConfig` to a `ShareableDataSource` by keeping only the shareable fields (see table in section 1). All runtime state fields (`id`, `status`, `lastSyncedAt`, `lastSyncCommitSha`, `errorMessage`) are dropped by construction — they simply aren't included in the output type.
 3. Map each `ToolConfig` to a `ShareableTool`:
    - Replace `dataSourceIds` (UUIDs) with `"owner/repo@branch"` strings by looking up each ID via `ConfigManager.getDataSource()`.
    - Skip any data source IDs that can't be resolved (orphaned references).
 4. Optionally include `defaultExcludePatterns` if they differ from the built-in defaults.
-5. Write the result as pretty-printed JSON to `{workspaceFolder}/.vscode/repolens.json`.
+5. Write the result as pretty-printed JSON to `{workspaceFolder}/.vscode/yoink.json`.
 
 ### What's inherently excluded
 
-The `repolens.json` config file **never contains secrets**. API keys are stored in VS Code's `SecretStorage` (OS keychain) or come from the `OPENAI_API_KEY` environment variable. GitHub tokens come from VS Code's built-in GitHub authentication provider. Neither appears in `repolens.json` at any point.
+The `yoink.json` config file **never contains secrets**. API keys are stored in VS Code's `SecretStorage` (OS keychain) or come from the `OPENAI_API_KEY` environment variable. GitHub tokens come from VS Code's built-in GitHub authentication provider. Neither appears in `yoink.json` at any point.
 
 So the export doesn't need to actively "strip" secrets — it just needs to avoid introducing any. The shareable schema has no fields for keys or tokens, making accidental inclusion structurally impossible.
 
 ### Export target
 
-- If a workspace folder is open, write to `{workspaceFolders[0]}/.vscode/repolens.json`.
-- If no workspace is open, show an error: *"Open a workspace folder first to export RepoLens config."*
-- If the file already exists, prompt: *"Overwrite existing .vscode/repolens.json?"* with Yes/No.
+- If a workspace folder is open, write to `{workspaceFolders[0]}/.vscode/yoink.json`.
+- If no workspace is open, show an error: *"Open a workspace folder first to export Yoink config."*
+- If the file already exists, prompt: *"Overwrite existing .vscode/yoink.json?"* with Yes/No.
 - Create the `.vscode/` directory if it doesn't exist.
 
 ---
@@ -226,6 +226,6 @@ So the export doesn't need to actively "strip" secrets — it just needs to avoi
 
 1. **Dismiss persistence**: Re-prompt each time. Simple, no persistence needed.
 2. **defaultExcludePatterns**: Only include in export if they differ from built-in defaults.
-3. **Manual import command**: Yes — "RepoLens: Import Config from Workspace" command added alongside auto-detect.
+3. **Manual import command**: Yes — "Yoink: Import Config from Workspace" command added alongside auto-detect.
 4. **Tool name collisions**: N/A — idempotent import skips duplicates silently.
 5. **Partial import failures**: Keep partial results, report what failed in the summary notification.

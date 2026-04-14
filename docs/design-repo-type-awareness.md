@@ -2,7 +2,7 @@
 
 ## Context
 
-RepoLens previously treated all indexed repos identically — same file filter
+Yoink previously treated all indexed repos identically — same file filter
 defaults, same chunking strategy, and the same generic tool description
 template. Different repo shapes (Actions libraries, documentation, CI/CD
 workflow repos, API specs) have radically different file structure and query

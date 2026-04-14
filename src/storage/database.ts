@@ -20,7 +20,7 @@ export function openDatabase(options: OpenDatabaseOptions = {}): Database.Databa
     if (!fs.existsSync(options.storagePath)) {
       fs.mkdirSync(options.storagePath, { recursive: true });
     }
-    const dbPath = path.join(options.storagePath, 'repolens.db');
+    const dbPath = path.join(options.storagePath, 'yoink.db');
     db = new Database(dbPath);
   } else {
     db = new Database(':memory:');

@@ -66,19 +66,19 @@ describe('registerCommands', () => {
   });
 
   it('registers all expected commands', () => {
-    expect(commands.has('repoLens.addRepository')).toBe(true);
-    expect(commands.has('repoLens.removeRepository')).toBe(true);
-    expect(commands.has('repoLens.syncDataSource')).toBe(true);
-    expect(commands.has('repoLens.syncAllDataSources')).toBe(true);
-    expect(commands.has('repoLens.setApiKey')).toBe(true);
-    expect(commands.has('repoLens.editTool')).toBe(true);
+    expect(commands.has('yoink.addRepository')).toBe(true);
+    expect(commands.has('yoink.removeRepository')).toBe(true);
+    expect(commands.has('yoink.syncDataSource')).toBe(true);
+    expect(commands.has('yoink.syncAllDataSources')).toBe(true);
+    expect(commands.has('yoink.setApiKey')).toBe(true);
+    expect(commands.has('yoink.editTool')).toBe(true);
   });
 
   it('addRepository runs the wizard', async () => {
     const mockWizard = { run: vi.fn() };
     wizardFactory.mockReturnValue(mockWizard);
 
-    await commands.get('repoLens.addRepository')!();
+    await commands.get('yoink.addRepository')!();
 
     expect(wizardFactory).toHaveBeenCalled();
     expect(mockWizard.run).toHaveBeenCalled();
@@ -89,7 +89,7 @@ describe('registerCommands', () => {
       label: 'acme/widgets', id: 'ds-1',
     });
 
-    await commands.get('repoLens.removeRepository')!();
+    await commands.get('yoink.removeRepository')!();
 
     expect(dataSourceManager.remove).toHaveBeenCalledWith('ds-1');
   });
@@ -97,7 +97,7 @@ describe('registerCommands', () => {
   it('removeRepository does nothing when no selection', async () => {
     (vscode.window.showQuickPick as any).mockResolvedValue(undefined);
 
-    await commands.get('repoLens.removeRepository')!();
+    await commands.get('yoink.removeRepository')!();
 
     expect(dataSourceManager.remove).not.toHaveBeenCalled();
   });
@@ -105,7 +105,7 @@ describe('registerCommands', () => {
   it('removeRepository shows message when no data sources', async () => {
     configManager.getDataSources.mockReturnValue([]);
 
-    await commands.get('repoLens.removeRepository')!();
+    await commands.get('yoink.removeRepository')!();
 
     expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
       'No data sources configured.',
@@ -117,13 +117,13 @@ describe('registerCommands', () => {
       label: 'acme/widgets', id: 'ds-1',
     });
 
-    await commands.get('repoLens.syncDataSource')!();
+    await commands.get('yoink.syncDataSource')!();
 
     expect(dataSourceManager.sync).toHaveBeenCalledWith('ds-1');
   });
 
   it('syncAllDataSources syncs all', async () => {
-    await commands.get('repoLens.syncAllDataSources')!();
+    await commands.get('yoink.syncAllDataSources')!();
 
     expect(dataSourceManager.syncAll).toHaveBeenCalled();
   });
@@ -131,7 +131,7 @@ describe('registerCommands', () => {
   it('setApiKey saves the key', async () => {
     (vscode.window.showInputBox as any).mockResolvedValue('sk-test-key-123');
 
-    await commands.get('repoLens.setApiKey')!();
+    await commands.get('yoink.setApiKey')!();
 
     expect(providerRegistry.setApiKey).toHaveBeenCalledWith('sk-test-key-123');
   });
@@ -139,7 +139,7 @@ describe('registerCommands', () => {
   it('setApiKey does nothing when cancelled', async () => {
     (vscode.window.showInputBox as any).mockResolvedValue(undefined);
 
-    await commands.get('repoLens.setApiKey')!();
+    await commands.get('yoink.setApiKey')!();
 
     expect(providerRegistry.setApiKey).not.toHaveBeenCalled();
   });
@@ -150,7 +150,7 @@ describe('registerCommands', () => {
     });
     (vscode.window.showInputBox as any).mockResolvedValue('Updated description');
 
-    await commands.get('repoLens.editTool')!();
+    await commands.get('yoink.editTool')!();
 
     expect(configManager.updateTool).toHaveBeenCalledWith('t-1', {
       description: 'Updated description',
@@ -160,7 +160,7 @@ describe('registerCommands', () => {
   it('editTool shows message when no tools configured', async () => {
     configManager.getTools.mockReturnValue([]);
 
-    await commands.get('repoLens.editTool')!();
+    await commands.get('yoink.editTool')!();
 
     expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
       'No tools configured.',
@@ -168,17 +168,17 @@ describe('registerCommands', () => {
   });
 
   it('registers export and import commands', () => {
-    expect(commands.has('repoLens.exportConfig')).toBe(true);
-    expect(commands.has('repoLens.importConfig')).toBe(true);
+    expect(commands.has('yoink.exportConfig')).toBe(true);
+    expect(commands.has('yoink.importConfig')).toBe(true);
   });
 
   it('exportConfig delegates to workspaceConfigManager', async () => {
-    await commands.get('repoLens.exportConfig')!();
+    await commands.get('yoink.exportConfig')!();
     expect(workspaceConfigManager.exportConfig).toHaveBeenCalled();
   });
 
   it('importConfig delegates to workspaceConfigManager', async () => {
-    await commands.get('repoLens.importConfig')!();
+    await commands.get('yoink.importConfig')!();
     expect(workspaceConfigManager.importFromWorkspace).toHaveBeenCalled();
   });
 });

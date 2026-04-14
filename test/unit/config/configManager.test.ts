@@ -51,7 +51,7 @@ describe('ConfigManager', () => {
   let tmpDir: string;
 
   beforeEach(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'repolens-test-'));
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'yoink-test-'));
     changeListeners.length = 0;
     fileWatcherCallbacks.change.length = 0;
     fileWatcherCallbacks.create.length = 0;
@@ -66,11 +66,11 @@ describe('ConfigManager', () => {
   }
 
   function writeConfig(config: any) {
-    fs.writeFileSync(path.join(tmpDir, 'repolens.json'), JSON.stringify(config, null, 2));
+    fs.writeFileSync(path.join(tmpDir, 'yoink.json'), JSON.stringify(config, null, 2));
   }
 
   function readConfig() {
-    return JSON.parse(fs.readFileSync(path.join(tmpDir, 'repolens.json'), 'utf-8'));
+    return JSON.parse(fs.readFileSync(path.join(tmpDir, 'yoink.json'), 'utf-8'));
   }
 
   it('returns default config when no file exists', () => {
@@ -106,7 +106,7 @@ describe('ConfigManager', () => {
   });
 
   it('handles corrupt JSON by backing up and resetting to defaults', () => {
-    const configPath = path.join(tmpDir, 'repolens.json');
+    const configPath = path.join(tmpDir, 'yoink.json');
     fs.writeFileSync(configPath, '{corrupt json!!!');
 
     const manager = new ConfigManager(makeUri());
@@ -218,7 +218,7 @@ describe('ConfigManager', () => {
     }
 
     // File should not exist yet (debounced)
-    const configPath = path.join(tmpDir, 'repolens.json');
+    const configPath = path.join(tmpDir, 'yoink.json');
     const existsBeforeFlush = fs.existsSync(configPath);
 
     // Flush to write

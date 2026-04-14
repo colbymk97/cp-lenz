@@ -106,7 +106,7 @@ export class EmbeddingTreeItem extends vscode.TreeItem {
       this.iconPath = new vscode.ThemeIcon('warning', new vscode.ThemeColor('problemsWarningIcon.foreground'));
       this.tooltip = `Embedding model: ${model}\nAPI key: not configured\nClick to set your OpenAI API key`;
       this.command = {
-        command: 'repoLens.setApiKey',
+        command: 'yoink.setApiKey',
         title: 'Set API Key',
       };
     }

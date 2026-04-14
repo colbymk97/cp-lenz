@@ -65,7 +65,7 @@ function makeDs(owner: string, repo: string, branch = 'main', id = 'ds-1'): Data
   };
 }
 
-const WORKSPACE_CONFIG_PATH = path.join('/workspace', '.vscode', 'repolens.json');
+const WORKSPACE_CONFIG_PATH = path.join('/workspace', '.vscode', 'yoink.json');
 
 describe('WorkspaceConfigManager', () => {
   beforeEach(() => {
@@ -318,7 +318,7 @@ describe('WorkspaceConfigManager', () => {
   });
 
   describe('exportConfig', () => {
-    it('writes shareable config to .vscode/repolens.json', async () => {
+    it('writes shareable config to .vscode/yoink.json', async () => {
       const ds = makeDs('acme', 'widgets');
       const configManager = makeConfigManager({ dataSources: [ds] });
       const mgr = new WorkspaceConfigManager(configManager, makeDataSourceManager(), makeLogger());
@@ -349,7 +349,7 @@ describe('WorkspaceConfigManager', () => {
       await mgr.exportConfig();
 
       expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(
-        'Overwrite existing .vscode/repolens.json?',
+        'Overwrite existing .vscode/yoink.json?',
         { modal: true },
         'Overwrite',
       );
@@ -378,7 +378,7 @@ describe('WorkspaceConfigManager', () => {
       await mgr.exportConfig();
 
       expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-        'Open a workspace folder first to export RepoLens config.',
+        'Open a workspace folder first to export Yoink config.',
       );
 
       // Restore
@@ -404,7 +404,7 @@ describe('WorkspaceConfigManager', () => {
       await mgr.detectAndPrompt();
 
       expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
-        'RepoLens config found in this workspace. Import tools and data sources?',
+        'Yoink config found in this workspace. Import tools and data sources?',
         'Import',
         'Not Now',
       );

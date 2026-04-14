@@ -3,8 +3,8 @@
 // tool description used for Copilot discovery.
 
 export const GET_FILE_TOOL = {
-  name: 'repolens-get-file',
-  displayName: 'RepoLens: Get File',
+  name: 'yoink-get-file',
+  displayName: 'Yoink: Get File',
   description:
     'Fetch the full content of a file from an indexed GitHub repository. ' +
     'Use this when search results reference a file and you need more context ' +

@@ -2,7 +2,7 @@
 
 ## 1. Where registration lives
 
-The feature follows the same three-layer pattern as `repolens-search`.
+The feature follows the same three-layer pattern as `yoink-search`.
 
 **`src/tools/getFileTool.ts`**
 Exports a `GET_FILE_TOOL` constant (name, displayName, description, inputSchema),

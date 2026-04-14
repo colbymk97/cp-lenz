@@ -15,12 +15,12 @@ export function registerCommands(
   workspaceConfigManager: WorkspaceConfigManager,
 ): void {
   context.subscriptions.push(
-    vscode.commands.registerCommand('repoLens.addRepository', async () => {
+    vscode.commands.registerCommand('yoink.addRepository', async () => {
       const wizard = wizardFactory();
       await wizard.run();
     }),
 
-    vscode.commands.registerCommand('repoLens.removeRepository', async () => {
+    vscode.commands.registerCommand('yoink.removeRepository', async () => {
       const dataSources = configManager.getDataSources();
       if (dataSources.length === 0) {
         vscode.window.showInformationMessage('No data sources configured.');
@@ -40,7 +40,7 @@ export function registerCommands(
       }
     }),
 
-    vscode.commands.registerCommand('repoLens.syncDataSource', async () => {
+    vscode.commands.registerCommand('yoink.syncDataSource', async () => {
       const dataSources = configManager.getDataSources();
       if (dataSources.length === 0) {
         vscode.window.showInformationMessage('No data sources configured.');
@@ -60,12 +60,12 @@ export function registerCommands(
       }
     }),
 
-    vscode.commands.registerCommand('repoLens.syncAllDataSources', async () => {
+    vscode.commands.registerCommand('yoink.syncAllDataSources', async () => {
       await dataSourceManager.syncAll();
       vscode.window.showInformationMessage('Sync queued for all data sources.');
     }),
 
-    vscode.commands.registerCommand('repoLens.setApiKey', async () => {
+    vscode.commands.registerCommand('yoink.setApiKey', async () => {
       const key = await vscode.window.showInputBox({
         prompt: 'Enter your OpenAI API key',
         password: true,
@@ -79,14 +79,14 @@ export function registerCommands(
     }),
 
     // Tree-item context menu commands
-    vscode.commands.registerCommand('repoLens.syncDataSourceFromTree', async (item: DataSourceTreeItem) => {
+    vscode.commands.registerCommand('yoink.syncDataSourceFromTree', async (item: DataSourceTreeItem) => {
       await dataSourceManager.sync(item.dataSource.id);
       vscode.window.showInformationMessage(
         `Sync queued for ${item.dataSource.owner}/${item.dataSource.repo}.`,
       );
     }),
 
-    vscode.commands.registerCommand('repoLens.removeDataSourceFromTree', async (item: DataSourceTreeItem) => {
+    vscode.commands.registerCommand('yoink.removeDataSourceFromTree', async (item: DataSourceTreeItem) => {
       const confirm = await vscode.window.showWarningMessage(
         `Remove ${item.dataSource.owner}/${item.dataSource.repo}? This will delete all indexed data.`,
         { modal: true },
@@ -100,7 +100,7 @@ export function registerCommands(
       }
     }),
 
-    vscode.commands.registerCommand('repoLens.editToolFromTree', async (item: ToolTreeItem) => {
+    vscode.commands.registerCommand('yoink.editToolFromTree', async (item: ToolTreeItem) => {
       const newDescription = await vscode.window.showInputBox({
         prompt: 'Tool description',
         value: item.tool.description,
@@ -112,7 +112,7 @@ export function registerCommands(
       }
     }),
 
-    vscode.commands.registerCommand('repoLens.editTool', async () => {
+    vscode.commands.registerCommand('yoink.editTool', async () => {
       const tools = configManager.getTools();
       if (tools.length === 0) {
         vscode.window.showInformationMessage('No tools configured.');
@@ -138,11 +138,11 @@ export function registerCommands(
       }
     }),
 
-    vscode.commands.registerCommand('repoLens.exportConfig', async () => {
+    vscode.commands.registerCommand('yoink.exportConfig', async () => {
       await workspaceConfigManager.exportConfig();
     }),
 
-    vscode.commands.registerCommand('repoLens.importConfig', async () => {
+    vscode.commands.registerCommand('yoink.importConfig', async () => {
       await workspaceConfigManager.importFromWorkspace();
     }),
   );

@@ -25,7 +25,7 @@ import { Logger } from './util/logger';
 
 export function activate(context: vscode.ExtensionContext): void {
   const logger = new Logger();
-  logger.info('RepoLens activating');
+  logger.info('Yoink activating');
 
   // Config
   const configManager = new ConfigManager(context.globalStorageUri);
@@ -67,7 +67,7 @@ export function activate(context: vscode.ExtensionContext): void {
   pipeline.onIndexingError((dataSourceId, message) => {
     const ds = configManager.getDataSource(dataSourceId);
     const label = ds ? `${ds.owner}/${ds.repo}` : dataSourceId;
-    vscode.window.showErrorMessage(`RepoLens: Indexing failed for ${label}: ${message}`);
+    vscode.window.showErrorMessage(`Yoink: Indexing failed for ${label}: ${message}`);
   });
 
   // Data source management
@@ -93,9 +93,9 @@ export function activate(context: vscode.ExtensionContext): void {
   const dataSourceTreeProvider = new DataSourceTreeProvider(configManager, chunkStore);
   const toolTreeProvider = new ToolTreeProvider(configManager);
   const embeddingTreeProvider = new EmbeddingTreeProvider(providerRegistry, context.secrets);
-  vscode.window.registerTreeDataProvider('repoLens.dataSources', dataSourceTreeProvider);
-  vscode.window.registerTreeDataProvider('repoLens.tools', toolTreeProvider);
-  vscode.window.registerTreeDataProvider('repoLens.embedding', embeddingTreeProvider);
+  vscode.window.registerTreeDataProvider('yoink.dataSources', dataSourceTreeProvider);
+  vscode.window.registerTreeDataProvider('yoink.tools', toolTreeProvider);
+  vscode.window.registerTreeDataProvider('yoink.embedding', embeddingTreeProvider);
 
   // Workspace config (shareable)
   const workspaceConfigManager = new WorkspaceConfigManager(
@@ -132,7 +132,7 @@ export function activate(context: vscode.ExtensionContext): void {
   // Detect workspace config and prompt import
   workspaceConfigManager.detectAndPrompt();
 
-  logger.info('RepoLens activated');
+  logger.info('Yoink activated');
 }
 
 export function deactivate(): void {

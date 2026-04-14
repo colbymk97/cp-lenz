@@ -45,8 +45,8 @@ describe('ToolManager', () => {
     const manager = new ToolManager(toolHandler, logger);
     manager.registerAll();
 
-    expect(registeredTools.has('repolens-search')).toBe(true);
-    expect(registeredTools.has('repolens-list')).toBe(true);
+    expect(registeredTools.has('yoink-search')).toBe(true);
+    expect(registeredTools.has('yoink-list')).toBe(true);
     manager.dispose();
   });
 
@@ -56,7 +56,7 @@ describe('ToolManager', () => {
     manager.registerAll();
 
     manager.dispose();
-    const globalDisposals = disposedTools.filter((n) => n === 'repolens-search');
+    const globalDisposals = disposedTools.filter((n) => n === 'yoink-search');
     expect(globalDisposals.length).toBe(1);
   });
 
@@ -66,7 +66,7 @@ describe('ToolManager', () => {
     manager.registerAll();
 
     manager.dispose();
-    const listDisposals = disposedTools.filter((n) => n === 'repolens-list');
+    const listDisposals = disposedTools.filter((n) => n === 'yoink-list');
     expect(listDisposals.length).toBe(1);
   });
 
@@ -74,7 +74,7 @@ describe('ToolManager', () => {
     const manager = new ToolManager(toolHandler, logger);
     manager.registerAll();
 
-    const handler = registeredTools.get('repolens-search');
+    const handler = registeredTools.get('yoink-search');
     const mockOptions = { input: { query: 'test' } };
     const mockToken = { isCancellationRequested: false };
 
@@ -88,7 +88,7 @@ describe('ToolManager', () => {
     const manager = new ToolManager(toolHandler, logger);
     manager.registerAll();
 
-    const handler = registeredTools.get('repolens-list');
+    const handler = registeredTools.get('yoink-list');
     const mockOptions = { input: {} };
     const mockToken = { isCancellationRequested: false };
 
@@ -104,7 +104,7 @@ describe('ToolManager', () => {
 
     manager.dispose();
 
-    expect(disposedTools).toContain('repolens-search');
-    expect(disposedTools).toContain('repolens-list');
+    expect(disposedTools).toContain('yoink-search');
+    expect(disposedTools).toContain('yoink-list');
   });
 });

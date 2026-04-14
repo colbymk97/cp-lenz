@@ -25,7 +25,7 @@ export interface ToolConfig {
   dataSourceIds: string[];
 }
 
-export interface RepoLensConfig {
+export interface YoinkConfig {
   version: number;
   dataSources: DataSourceConfig[];
   tools: ToolConfig[];
@@ -52,7 +52,7 @@ export const DEFAULT_EXCLUDE_PATTERNS: string[] = [
   '**/*.eot',
 ];
 
-// --- Shareable config types (for .vscode/repolens.json) ---
+// --- Shareable config types (for .vscode/yoink.json) ---
 
 export interface ShareableDataSource {
   repoUrl: string;
@@ -79,7 +79,7 @@ export interface ShareableConfig {
   defaultExcludePatterns?: string[];
 }
 
-export function createDefaultConfig(): RepoLensConfig {
+export function createDefaultConfig(): YoinkConfig {
   return {
     version: 1,
     dataSources: [],

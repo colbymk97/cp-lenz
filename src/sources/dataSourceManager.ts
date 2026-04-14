@@ -71,11 +71,11 @@ export class DataSourceManager implements vscode.Disposable {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       const action = await vscode.window.showErrorMessage(
-        `RepoLens: ${message}`,
+        `Yoink: ${message}`,
         'Set API Key',
       );
       if (action === 'Set API Key') {
-        await vscode.commands.executeCommand('repoLens.setApiKey');
+        await vscode.commands.executeCommand('yoink.setApiKey');
       }
       throw err;
     }

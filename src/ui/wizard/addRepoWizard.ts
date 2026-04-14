@@ -21,7 +21,7 @@ export class AddRepoWizard {
     // Step 0: Ensure API key is configured
     if (!(await this.embeddingRegistry.hasApiKey())) {
       const apiKey = await vscode.window.showInputBox({
-        title: 'RepoLens: OpenAI API Key Required',
+        title: 'Yoink: OpenAI API Key Required',
         prompt: 'Enter your OpenAI API key to enable embeddings',
         placeHolder: 'sk-...',
         password: true,

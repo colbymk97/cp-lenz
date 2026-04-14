@@ -17,6 +17,6 @@ tsconfig.json
 vitest.config.ts
 eslint.config.mjs
 esbuild.mjs
-repolens.json.schema.json
+yoink.json.schema.json
 ARCHITECTURE.md
 CLAUDE.md

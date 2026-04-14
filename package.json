@@ -1,12 +1,12 @@
 {
-  "name": "repolens",
-  "displayName": "RepoLens",
+  "name": "yoink",
+  "displayName": "Yoink",
   "description": "Use any GitHub repository as RAG context for Copilot — query codebases, docs, and institutional knowledge without leaving VS Code.",
   "version": "0.0.1",
-  "publisher": "repolens",
+  "publisher": "yoink",
   "repository": {
     "type": "git",
-    "url": "https://github.com/colbymk97/repo-lens.git"
+    "url": "https://github.com/colbymk97/yoink.git"
   },
   "license": "MIT",
   "engines": {
@@ -30,68 +30,68 @@
   "contributes": {
     "commands": [
       {
-        "command": "repoLens.addRepository",
-        "title": "RepoLens: Add Repository"
+        "command": "yoink.addRepository",
+        "title": "Yoink: Add Repository"
       },
       {
-        "command": "repoLens.removeRepository",
-        "title": "RepoLens: Remove Repository"
+        "command": "yoink.removeRepository",
+        "title": "Yoink: Remove Repository"
       },
       {
-        "command": "repoLens.syncDataSource",
-        "title": "RepoLens: Sync Data Source"
+        "command": "yoink.syncDataSource",
+        "title": "Yoink: Sync Data Source"
       },
       {
-        "command": "repoLens.syncAllDataSources",
-        "title": "RepoLens: Sync All Data Sources"
+        "command": "yoink.syncAllDataSources",
+        "title": "Yoink: Sync All Data Sources"
       },
       {
-        "command": "repoLens.setApiKey",
-        "title": "RepoLens: Set OpenAI API Key"
+        "command": "yoink.setApiKey",
+        "title": "Yoink: Set OpenAI API Key"
       },
       {
-        "command": "repoLens.editTool",
-        "title": "RepoLens: Edit Tool"
+        "command": "yoink.editTool",
+        "title": "Yoink: Edit Tool"
       },
       {
-        "command": "repoLens.syncDataSourceFromTree",
+        "command": "yoink.syncDataSourceFromTree",
         "title": "Sync",
         "icon": "$(sync)"
       },
       {
-        "command": "repoLens.removeDataSourceFromTree",
+        "command": "yoink.removeDataSourceFromTree",
         "title": "Remove",
         "icon": "$(trash)"
       },
       {
-        "command": "repoLens.editToolFromTree",
+        "command": "yoink.editToolFromTree",
         "title": "Edit",
         "icon": "$(edit)"
       },
       {
-        "command": "repoLens.exportConfig",
-        "title": "RepoLens: Export Config to Workspace"
+        "command": "yoink.exportConfig",
+        "title": "Yoink: Export Config to Workspace"
       },
       {
-        "command": "repoLens.importConfig",
-        "title": "RepoLens: Import Config from Workspace"
+        "command": "yoink.importConfig",
+        "title": "Yoink: Import Config from Workspace"
       }
     ],
     "menus": {
       "view/item/context": [
         {
-          "command": "repoLens.syncDataSourceFromTree",
-          "when": "view == repoLens.dataSources && viewItem == dataSource",
+          "command": "yoink.syncDataSourceFromTree",
+          "when": "view == yoink.dataSources && viewItem == dataSource",
           "group": "inline"
         },
         {
-          "command": "repoLens.removeDataSourceFromTree",
-          "when": "view == repoLens.dataSources && viewItem == dataSource",
+          "command": "yoink.removeDataSourceFromTree",
+          "when": "view == yoink.dataSources && viewItem == dataSource",
           "group": "inline"
         },
         {
-          "command": "repoLens.editToolFromTree",
-          "when": "view == repoLens.tools && viewItem == tool",
+          "command": "yoink.editToolFromTree",
+          "when": "view == yoink.tools && viewItem == tool",
           "group": "inline"
         }
       ]
@@ -99,32 +99,32 @@
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "repoLens",
-          "title": "RepoLens",
+          "id": "yoink",
+          "title": "Yoink",
           "icon": "$(database)"
         }
       ]
     },
     "views": {
-      "repoLens": [
+      "yoink": [
         {
-          "id": "repoLens.embedding",
+          "id": "yoink.embedding",
           "name": "Embedding"
         },
         {
-          "id": "repoLens.dataSources",
+          "id": "yoink.dataSources",
           "name": "Data Sources"
         },
         {
-          "id": "repoLens.tools",
+          "id": "yoink.tools",
           "name": "Tools"
         }
       ]
     },
     "configuration": {
-      "title": "RepoLens",
+      "title": "Yoink",
       "properties": {
-        "repoLens.embedding.provider": {
+        "yoink.embedding.provider": {
           "type": "string",
           "enum": [
             "openai"
@@ -132,29 +132,29 @@
           "default": "openai",
           "description": "Embedding provider to use for indexing."
         },
-        "repoLens.embedding.openai.model": {
+        "yoink.embedding.openai.model": {
           "type": "string",
           "default": "text-embedding-3-small",
           "description": "OpenAI embedding model to use."
         },
-        "repoLens.embedding.openai.baseUrl": {
+        "yoink.embedding.openai.baseUrl": {
           "type": "string",
           "default": "https://api.openai.com/v1",
           "description": "Base URL for OpenAI-compatible API (for proxies or compatible services)."
         },
-        "repoLens.search.topK": {
+        "yoink.search.topK": {
           "type": "number",
           "default": 10,
           "minimum": 1,
           "maximum": 50,
           "description": "Number of chunks to return per tool query."
         },
-        "repoLens.sync.onStartup": {
+        "yoink.sync.onStartup": {
           "type": "boolean",
           "default": true,
           "description": "Automatically sync data sources marked 'onStartup' when VS Code launches."
         },
-        "repoLens.log.level": {
+        "yoink.log.level": {
           "type": "string",
           "enum": [
             "debug",
@@ -169,13 +169,13 @@
     },
     "languageModelTools": [
       {
-        "name": "repolens-search",
-        "toolReferenceName": "repolens",
+        "name": "yoink-search",
+        "toolReferenceName": "yoink",
         "canBeReferencedInPrompt": true,
-        "tags": ["repolens", "search", "rag", "github", "codebase"],
-        "displayName": "RepoLens: Search Repositories",
+        "tags": ["yoink", "search", "rag", "github", "codebase"],
+        "displayName": "Yoink: Search Repositories",
         "userDescription": "Search your indexed GitHub repositories for relevant code, documentation, or knowledge.",
-        "modelDescription": "Search indexed GitHub repositories using vector similarity. Returns relevant code snippets and documentation. Use 'repository' to filter by a specific repo (owner/repo format), or 'tool' to use a configured tool scope. Call repolens-list first to discover available repositories and tools.",
+        "modelDescription": "Search indexed GitHub repositories using vector similarity. Returns relevant code snippets and documentation. Use 'repository' to filter by a specific repo (owner/repo format), or 'tool' to use a configured tool scope. Call yoink-list first to discover available repositories and tools.",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -189,29 +189,30 @@
             },
             "tool": {
               "type": "string",
-              "description": "Optional: use a configured RepoLens tool name to search only its assigned repositories. Get available tool names from repolens-list."
+              "description": "Optional: use a configured Yoink tool name to search only its assigned repositories. Get available tool names from yoink-list."
             }
           },
           "required": ["query"]
         }
       },
       {
-        "name": "repolens-list",
-        "toolReferenceName": "repolens-list",
+        "name": "yoink-list",
+        "toolReferenceName": "yoink-list",
         "canBeReferencedInPrompt": true,
-        "tags": ["repolens", "list", "discover", "repositories"],
-        "displayName": "RepoLens: List Data Sources",
-        "userDescription": "List all indexed GitHub repositories and configured search tools in RepoLens.",
-        "modelDescription": "List all data sources (GitHub repositories) and tools currently indexed and available in RepoLens. Call this first to discover what repositories are available before searching. Returns repository names, branches, status, file/chunk counts, and any configured tool scopes.",
+        "tags": ["yoink", "list", "discover", "repositories"],
+        "displayName": "Yoink: List Data Sources",
+        "userDescription": "List all indexed GitHub repositories and configured search tools in Yoink.",
+        "modelDescription": "List all data sources (GitHub repositories) and tools currently indexed and available in Yoink. Call this first to discover what repositories are available before searching. Returns repository names, branches, status, file/chunk counts, and any configured tool scopes.",
         "inputSchema": {
           "type": "object",
           "properties": {}
-        },
-        {
-        "name": "repolens-get-file",
-        "toolReferenceName": "repolensGetFile",
-        "tags": ["repolens", "github", "file", "code"],
-        "displayName": "RepoLens: Get File",
+        }
+      },
+      {
+        "name": "yoink-get-file",
+        "toolReferenceName": "yoinkGetFile",
+        "tags": ["yoink", "github", "file", "code"],
+        "displayName": "Yoink: Get File",
         "userDescription": "Fetch the full content of a file from an indexed GitHub repository.",
         "modelDescription": "Fetch the full or partial content of a file from an indexed GitHub repository. Use this when search results reference a file and you need more context than the returned chunk provides. Provide startLine and endLine to fetch a specific section of a large file.",
         "inputSchema": {

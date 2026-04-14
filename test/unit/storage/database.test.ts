@@ -9,7 +9,7 @@ describe('openDatabase', () => {
   const tempDirs: string[] = [];
 
   function makeTempDir(): string {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'repolens-test-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'yoink-test-'));
     tempDirs.push(dir);
     return dir;
   }
@@ -70,7 +70,7 @@ describe('openDatabase', () => {
   it('creates a file-backed database', () => {
     const dir = makeTempDir();
     const db = openDatabase({ storagePath: dir });
-    const dbFile = path.join(dir, 'repolens.db');
+    const dbFile = path.join(dir, 'yoink.db');
     expect(fs.existsSync(dbFile)).toBe(true);
     db.close();
   });

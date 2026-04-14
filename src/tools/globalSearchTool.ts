@@ -3,8 +3,8 @@
 // tool description used for Copilot discovery.
 
 export const GLOBAL_SEARCH_TOOL = {
-  name: 'repolens-search',
-  displayName: 'RepoLens Search',
+  name: 'yoink-search',
+  displayName: 'Yoink Search',
   description:
     'Search across all configured repository knowledge bases. ' +
     'Use this to find code, documentation, patterns, or examples ' +
@@ -19,7 +19,7 @@ export const GLOBAL_SEARCH_TOOL = {
       tool: {
         type: 'string' as const,
         description:
-          'Optional: use a configured RepoLens tool name to search only its assigned repositories.',
+          'Optional: use a configured Yoink tool name to search only its assigned repositories.',
       },
     },
     required: ['query'],
@@ -27,8 +27,8 @@ export const GLOBAL_SEARCH_TOOL = {
 };
 
 export const LIST_TOOL = {
-  name: 'repolens-list',
-  displayName: 'RepoLens List',
+  name: 'yoink-list',
+  displayName: 'Yoink List',
   description:
-    'List all indexed data sources and configured tools in RepoLens.',
+    'List all indexed data sources and configured tools in Yoink.',
 };

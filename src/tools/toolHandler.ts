@@ -90,7 +90,7 @@ export class ToolHandler {
     if (readySources.length === 0) {
       return new vscode.LanguageModelToolResult([
         new vscode.LanguageModelTextPart(
-          'No repositories are indexed yet. Add a repository via the RepoLens sidebar and wait for indexing to complete.',
+          'No repositories are indexed yet. Add a repository via the Yoink sidebar and wait for indexing to complete.',
         ),
       ]);
     }

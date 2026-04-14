@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import {
-  RepoLensConfig,
+  YoinkConfig,
   DataSourceConfig,
   ToolConfig,
   createDefaultConfig,
@@ -11,9 +11,9 @@ import {
 const DEBOUNCE_MS = 300;
 
 export class ConfigManager implements vscode.Disposable {
-  private config: RepoLensConfig;
+  private config: YoinkConfig;
   private readonly configPath: string;
-  private readonly _onDidChange = new vscode.EventEmitter<RepoLensConfig>();
+  private readonly _onDidChange = new vscode.EventEmitter<YoinkConfig>();
   readonly onDidChange = this._onDidChange.event;
 
   private debounceTimer: ReturnType<typeof setTimeout> | undefined;
@@ -21,15 +21,15 @@ export class ConfigManager implements vscode.Disposable {
   private suppressNextFileEvent = false;
 
   constructor(globalStorageUri: vscode.Uri) {
-    this.configPath = path.join(globalStorageUri.fsPath, 'repolens.json');
+    this.configPath = path.join(globalStorageUri.fsPath, 'yoink.json');
     this.config = this.load();
     this.setupFileWatcher();
   }
 
-  private load(): RepoLensConfig {
+  private load(): YoinkConfig {
     try {
       const raw = fs.readFileSync(this.configPath, 'utf-8');
-      const config = JSON.parse(raw) as RepoLensConfig;
+      const config = JSON.parse(raw) as YoinkConfig;
       // Migration: data sources created before type awareness default to 'general'
       for (const ds of config.dataSources) {
         if (!ds.type) ds.type = 'general';
@@ -104,7 +104,7 @@ export class ConfigManager implements vscode.Disposable {
     this._onDidChange.fire(this.config);
   }
 
-  getConfig(): Readonly<RepoLensConfig> {
+  getConfig(): Readonly<YoinkConfig> {
     return this.config;
   }
 

@@ -24,7 +24,7 @@ export class EmbeddingProviderRegistry {
     const apiKey = await this.resolveApiKey();
     if (!apiKey) {
       throw new Error(
-        'OpenAI API key not configured. Run "RepoLens: Set OpenAI API Key" or set the OPENAI_API_KEY environment variable.',
+        'OpenAI API key not configured. Run "Yoink: Set OpenAI API Key" or set the OPENAI_API_KEY environment variable.',
       );
     }
 
@@ -41,7 +41,7 @@ export class EmbeddingProviderRegistry {
 
   private async resolveApiKey(): Promise<string | undefined> {
     // 1. SecretStorage (primary)
-    const stored = await this.secretStorage.get('repoLens.openai.apiKey');
+    const stored = await this.secretStorage.get('yoink.openai.apiKey');
     if (stored) return stored;
 
     // 2. Environment variable (fallback)
@@ -52,10 +52,10 @@ export class EmbeddingProviderRegistry {
   }
 
   async setApiKey(key: string): Promise<void> {
-    await this.secretStorage.store('repoLens.openai.apiKey', key);
+    await this.secretStorage.store('yoink.openai.apiKey', key);
   }
 
   async clearApiKey(): Promise<void> {
-    await this.secretStorage.delete('repoLens.openai.apiKey');
+    await this.secretStorage.delete('yoink.openai.apiKey');
   }
 }

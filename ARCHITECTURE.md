@@ -1,17 +1,17 @@
-# RepoLens Architecture
+# Yoink Architecture
 
 ## 1. Folder & Module Structure
 
 ```
-repolens/
+yoink/
 ├── package.json                  # Extension manifest, contributes, activation events
 ├── tsconfig.json
-├── repolens.json.schema.json     # JSON Schema for repolens.json config file
+├── yoink.json.schema.json     # JSON Schema for yoink.json config file
 ├── src/
 │   ├── extension.ts              # activate() / deactivate() — wires everything
 │   │
 │   ├── config/
-│   │   ├── configManager.ts      # Read/write/watch repolens.json
+│   │   ├── configManager.ts      # Read/write/watch yoink.json
 │   │   ├── configSchema.ts       # TypeScript types for config file
 │   │   └── settingsSchema.ts     # VS Code settings type definitions
 │   │
@@ -112,7 +112,7 @@ interface DataSourceConfig {
 }
 ```
 
-`DataSourceManager` owns the lifecycle: create, update, delete, trigger sync. It writes config changes to `repolens.json` and coordinates with the ingestion pipeline.
+`DataSourceManager` owns the lifecycle: create, update, delete, trigger sync. It writes config changes to `yoink.json` and coordinates with the ingestion pipeline.
 
 ### Tool
 
@@ -168,7 +168,7 @@ For markdown/docs: same strategy works well since prose is less structure-depend
 ### Adding a Repository (end-to-end)
 
 ```
-User invokes "RepoLens: Add Repository"
+User invokes "Yoink: Add Repository"
   │
   ▼
 ┌─────────────────────┐
@@ -180,7 +180,7 @@ User invokes "RepoLens: Add Repository"
          ▼
 ┌─────────────────────┐
 │  configManager.ts   │  Write DataSourceConfig + ToolConfig
-│                     │  to repolens.json
+│                     │  to yoink.json
 └────────┬────────────┘
          │
          ▼  (event emitted)
@@ -256,9 +256,9 @@ VS Code's Chat Tools API (`vscode.lm` namespace) allows extensions to register t
 In `extension.ts` → `activate()`:
 
 ```typescript
-// For each tool in repolens.json config:
+// For each tool in yoink.json config:
 const disposable = vscode.lm.registerTool(
-  `repolens.${tool.name}`,   // tool ID (namespaced)
+  `yoink.${tool.name}`,   // tool ID (namespaced)
   {
     // The tool implementation
     invoke: async (options, token) => {
@@ -286,12 +286,12 @@ const disposable = vscode.lm.registerTool(
 Always registered, searches across all indexed data sources:
 
 ```typescript
-vscode.lm.registerTool('repolens.search', {
+vscode.lm.registerTool('yoink.search', {
   invoke: async (options, token) => {
     // Query all data sources, no scoping
     return toolHandler.handleGlobalSearch(options, token);
   },
-  displayName: 'RepoLens Search',
+  displayName: 'Yoink Search',
   description: 'Search across all configured repository knowledge bases',
   inputSchema: { /* same as above */ }
 });
@@ -333,7 +333,7 @@ CREATE TABLE meta (
   value TEXT NOT NULL
 );
 
--- Tracks configured data sources (mirrors repolens.json for query joins)
+-- Tracks configured data sources (mirrors yoink.json for query joins)
 CREATE TABLE data_sources (
   id                TEXT PRIMARY KEY,     -- UUID
   owner             TEXT NOT NULL,
@@ -408,9 +408,9 @@ LIMIT 10;
 
 ---
 
-## 6. Config File Schema (`repolens.json`)
+## 6. Config File Schema (`yoink.json`)
 
-Stored at `{globalStorageUri}/repolens.json`.
+Stored at `{globalStorageUri}/yoink.json`.
 
 ```jsonc
 {
@@ -468,35 +468,35 @@ Contributed via `package.json` → `contributes.configuration`:
 
 ```jsonc
 {
-  "repoLens.embedding.provider": {
+  "yoink.embedding.provider": {
     "type": "string",
     "enum": ["openai"],
     "default": "openai",
     "description": "Embedding provider to use for indexing."
   },
-  "repoLens.embedding.openai.model": {
+  "yoink.embedding.openai.model": {
     "type": "string",
     "default": "text-embedding-3-small",
     "description": "OpenAI embedding model to use."
   },
-  "repoLens.embedding.openai.baseUrl": {
+  "yoink.embedding.openai.baseUrl": {
     "type": "string",
     "default": "https://api.openai.com/v1",
     "description": "Base URL for OpenAI-compatible API (for proxies or compatible services)."
   },
-  "repoLens.search.topK": {
+  "yoink.search.topK": {
     "type": "number",
     "default": 10,
     "minimum": 1,
     "maximum": 50,
     "description": "Number of chunks to return per tool query."
   },
-  "repoLens.sync.onStartup": {
+  "yoink.sync.onStartup": {
     "type": "boolean",
     "default": true,
     "description": "Automatically sync data sources marked 'onStartup' when VS Code launches."
   },
-  "repoLens.log.level": {
+  "yoink.log.level": {
     "type": "string",
     "enum": ["debug", "info", "warn", "error"],
     "default": "info",
@@ -512,7 +512,7 @@ Contributed via `package.json` → `contributes.configuration`:
 ### 1. API key storage → SecretStorage + env var fallback
 
 `vscode.SecretStorage` (OS keychain-backed) is the primary storage for API keys.
-A command "RepoLens: Set OpenAI API Key" writes to SecretStorage. The
+A command "Yoink: Set OpenAI API Key" writes to SecretStorage. The
 `${env:OPENAI_API_KEY}` environment variable is supported as fallback. Raw API
 keys are never stored in `settings.json`. Resolution order:
 

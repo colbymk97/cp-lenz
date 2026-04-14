@@ -12,7 +12,7 @@ import {
 import { DataSourceManager } from '../sources/dataSourceManager';
 import { Logger } from '../util/logger';
 
-const WORKSPACE_CONFIG_FILENAME = 'repolens.json';
+const WORKSPACE_CONFIG_FILENAME = 'yoink.json';
 const WORKSPACE_CONFIG_DIR = '.vscode';
 
 export interface ImportResult {
@@ -31,7 +31,7 @@ export class WorkspaceConfigManager {
   ) {}
 
   /**
-   * Detect .vscode/repolens.json in the primary workspace folder
+   * Detect .vscode/yoink.json in the primary workspace folder
    * and prompt the user to import it.
    */
   async detectAndPrompt(): Promise<void> {
@@ -46,7 +46,7 @@ export class WorkspaceConfigManager {
     if (shareable.dataSources.length === 0 && shareable.tools.length === 0) return;
 
     const action = await vscode.window.showInformationMessage(
-      'RepoLens config found in this workspace. Import tools and data sources?',
+      'Yoink config found in this workspace. Import tools and data sources?',
       'Import',
       'Not Now',
     );
@@ -58,13 +58,13 @@ export class WorkspaceConfigManager {
   }
 
   /**
-   * Export current config to .vscode/repolens.json in the primary workspace folder.
+   * Export current config to .vscode/yoink.json in the primary workspace folder.
    */
   async exportConfig(): Promise<void> {
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     if (!workspaceFolder) {
       vscode.window.showErrorMessage(
-        'Open a workspace folder first to export RepoLens config.',
+        'Open a workspace folder first to export Yoink config.',
       );
       return;
     }
@@ -74,7 +74,7 @@ export class WorkspaceConfigManager {
 
     if (fs.existsSync(targetPath)) {
       const overwrite = await vscode.window.showWarningMessage(
-        'Overwrite existing .vscode/repolens.json?',
+        'Overwrite existing .vscode/yoink.json?',
         { modal: true },
         'Overwrite',
       );
@@ -89,26 +89,26 @@ export class WorkspaceConfigManager {
     fs.writeFileSync(targetPath, JSON.stringify(shareable, null, 2));
 
     vscode.window.showInformationMessage(
-      `Exported ${shareable.dataSources.length} data sources and ${shareable.tools.length} tools to .vscode/repolens.json`,
+      `Exported ${shareable.dataSources.length} data sources and ${shareable.tools.length} tools to .vscode/yoink.json`,
     );
     this.logger.info(`Exported config to ${targetPath}`);
   }
 
   /**
-   * Import from .vscode/repolens.json in the primary workspace folder (manual command).
+   * Import from .vscode/yoink.json in the primary workspace folder (manual command).
    */
   async importFromWorkspace(): Promise<void> {
     const configPath = this.getWorkspaceConfigPath();
     if (!configPath) {
       vscode.window.showErrorMessage(
-        'Open a workspace folder first to import RepoLens config.',
+        'Open a workspace folder first to import Yoink config.',
       );
       return;
     }
 
     if (!fs.existsSync(configPath)) {
       vscode.window.showInformationMessage(
-        'No .vscode/repolens.json found in this workspace.',
+        'No .vscode/yoink.json found in this workspace.',
       );
       return;
     }
@@ -116,7 +116,7 @@ export class WorkspaceConfigManager {
     const shareable = this.readShareableConfig(configPath);
     if (!shareable) {
       vscode.window.showErrorMessage(
-        'Failed to parse .vscode/repolens.json. Check the file format.',
+        'Failed to parse .vscode/yoink.json. Check the file format.',
       );
       return;
     }
@@ -221,7 +221,7 @@ export class WorkspaceConfigManager {
     }));
 
     const shareable: ShareableConfig = {
-      $schema: 'https://repolens.dev/schema/shareable-config.json',
+      $schema: 'https://yoink.dev/schema/shareable-config.json',
       version: 1,
       dataSources,
       tools,
@@ -299,12 +299,12 @@ export class WorkspaceConfigManager {
 
     if (parts.length === 0 && skipped > 0) {
       vscode.window.showInformationMessage(
-        `RepoLens: All ${skipped} items already exist. Nothing to import.`,
+        `Yoink: All ${skipped} items already exist. Nothing to import.`,
       );
       return;
     }
 
-    let message = `RepoLens: Imported ${parts.join(' and ')}`;
+    let message = `Yoink: Imported ${parts.join(' and ')}`;
     if (skipped > 0) {
       message += ` (${skipped} already existed)`;
     }
@@ -312,7 +312,7 @@ export class WorkspaceConfigManager {
 
     if (result.warnings.length > 0) {
       vscode.window.showWarningMessage(
-        `${message} ${result.warnings.length} warning(s) — check the RepoLens output log.`,
+        `${message} ${result.warnings.length} warning(s) — check the Yoink output log.`,
       );
     } else {
       vscode.window.showInformationMessage(message);

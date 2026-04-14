@@ -1,6 +1,6 @@
-# RepoLens — Implementation Slices
+# Yoink — Implementation Slices
 
-This document breaks the RepoLens architecture into ordered implementation
+This document breaks the Yoink architecture into ordered implementation
 slices. Each slice is vertically integrated — it produces something testable
 and builds on the previous slice. No slice should take more than a focused
 session to implement.
@@ -160,7 +160,7 @@ The first time the extension is actually useful.
    handler, verify formatted output
 
 **Acceptance:**
-- `repolens-search` tool is registered on activation
+- `yoink-search` tool is registered on activation
 - Querying the tool returns correctly formatted, ranked results
 - Adding/removing a tool in config triggers registration/disposal
 
@@ -174,7 +174,7 @@ The first time the extension is actually useful.
 full lifecycle from `activate()` to `deactivate()`.
 
 **Files:**
-- `src/config/configManager.ts` — read/write/watch `repolens.json`
+- `src/config/configManager.ts` — read/write/watch `yoink.json`
 - `src/config/configSchema.ts` — types + defaults
 - `src/extension.ts` — full dependency wiring
 
@@ -185,7 +185,7 @@ full lifecycle from `activate()` to `deactivate()`.
    resolution
 3. Register all disposables correctly — verify no resource leaks on
    deactivate
-4. Add config file watcher — if user edits `repolens.json` externally,
+4. Add config file watcher — if user edits `yoink.json` externally,
    reload and re-sync tool registrations
 5. Integration test: activate extension in VS Code Extension Test Host,
    verify tools register, config persists across activate/deactivate cycles
@@ -306,7 +306,7 @@ full lifecycle from `activate()` to `deactivate()`.
    file count / chunk count updates
 5. Duplicate prevention — prevent adding same owner/repo/branch twice
 6. Config corruption recovery — detect invalid JSON, offer to reset
-7. Logging — ensure all error paths log to the RepoLens output channel
+7. Logging — ensure all error paths log to the Yoink output channel
    with enough context to diagnose
 
 **Acceptance:**
