@@ -168,8 +168,11 @@ export class AddRepoWizard {
       return isRepoUrlResult(result) ? result : undefined;
     }
 
-    // Browse repos
-    const repos = await this.browser.listUserRepos();
+    // Browse repos — fetch all pages so large orgs (600+ repos) are fully searchable
+    const repos = await vscode.window.withProgress(
+      { location: vscode.ProgressLocation.Notification, title: 'Loading repositories…' },
+      () => this.browser.listAllUserRepos(),
+    );
     const picked = await vscode.window.showQuickPick(
       repos.map((r) => ({
         label: r.fullName,
