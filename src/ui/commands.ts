@@ -243,7 +243,7 @@ export function registerCommands(
       try {
         const count = await agentInstaller.install(folder.uri);
         vscode.window.showInformationMessage(
-          `Yoink: Installed ${count} agent file${count !== 1 ? 's' : ''} to .claude/agents/`,
+          `Yoink: Installed ${count} agent file${count !== 1 ? 's' : ''} to .copilot/agents/`,
         );
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);

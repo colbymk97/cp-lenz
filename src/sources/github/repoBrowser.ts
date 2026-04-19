@@ -26,6 +26,18 @@ export class RepoBrowser {
     return (await res.json() as RepoListItem[]).map(mapRepoItem);
   }
 
+  async listAllUserRepos(): Promise<RepoSearchResult[]> {
+    const all: RepoSearchResult[] = [];
+    let page = 1;
+    while (true) {
+      const batch = await this.listUserRepos(page, 100);
+      all.push(...batch);
+      if (batch.length < 100) break;
+      page++;
+    }
+    return all;
+  }
+
   async listStarredRepos(page: number = 1, perPage: number = 30): Promise<RepoSearchResult[]> {
     const token = await this.getToken();
     const res = await fetch(
