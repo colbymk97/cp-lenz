@@ -27,31 +27,7 @@ jobs:
 
       - run: npm ci
       - run: npm run build
-
-      - name: Rebuild native modules for VS Code Electron
-        run: |
-          # Fetch the Electron version from the VS Code release matching our engine requirement.
-          # Update the tag below when bumping engines.vscode in package.json.
-          ELECTRON_VERSION=$(node -e "
-            const https = require('https');
-            const opts = {
-              hostname: 'raw.githubusercontent.com',
-              path: '/microsoft/vscode/1.114.0/package.json',
-              headers: { 'User-Agent': 'node' }
-            };
-            https.get(opts, r => {
-              let d = '';
-              r.on('data', c => d += c);
-              r.on('end', () => {
-                try { process.stdout.write(JSON.parse(d).dependencies.electron); }
-                catch(e) { process.stdout.write('39.8.3'); }
-              });
-            }).on('error', () => process.stdout.write('39.8.3'));
-          " 2>/dev/null || echo "39.8.3")
-          echo "Using Electron $ELECTRON_VERSION"
-          npx --yes @electron/rebuild -v "$ELECTRON_VERSION"
-
-      - run: npx vsce package --target ${{ matrix.target }}
+      - run: npx vsce package --no-dependencies --target ${{ matrix.target }}
 
       - name: Upload VSIX
         uses: actions/upload-artifact@v4

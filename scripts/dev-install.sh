@@ -19,54 +19,27 @@ else
   exit 1
 fi
 
-# Verify that Xcode Command Line Tools are properly registered.
-# node-gyp needs them to compile better-sqlite3 against Electron headers.
-if [[ "$(uname -s)" == "Darwin" ]]; then
-  if ! pkgutil --pkg-info=com.apple.pkg.CLTools_Executables &>/dev/null; then
-    echo ""
-    echo "ERROR: Xcode Command Line Tools are not properly registered."
-    echo "node-gyp requires them to compile native modules for VS Code's Electron."
-    echo ""
-    echo "Fix: run the following, then re-run this script:"
-    echo "  xcode-select --install"
-    echo ""
-    echo "If CLT is already installed but unregistered, try:"
-    echo "  sudo xcode-select --switch /Library/Developer/CommandLineTools"
-    echo ""
-    exit 1
-  fi
-fi
-
 cd "$ROOT"
 
 echo "==> Building..."
 npm run build
 
-# Detect VS Code's Electron version. better-sqlite3 is a V8 native module that must be
-# compiled against Electron's headers (not Node's) to load in VS Code's extension host.
-echo "==> Detecting VS Code Electron version..."
-ELECTRON_VERSION=""
-for vscode_pkg in \
-  "/Applications/Visual Studio Code.app/Contents/Resources/app/package.json" \
-  "$HOME/Applications/Visual Studio Code.app/Contents/Resources/app/package.json"; do
-  if [[ -f "$vscode_pkg" ]]; then
-    ELECTRON_VERSION=$(python3 -c "import json; print(json.load(open('$vscode_pkg'))['dependencies']['electron'])" 2>/dev/null || true)
-    [[ -n "$ELECTRON_VERSION" ]] && break
+# On Apple Silicon Macs, the user's Node may be x64 (Rosetta) while VS Code runs
+# as arm64.  Native modules (better-sqlite3, sqlite-vec) must match VS Code's arch.
+if [[ "$(uname -s)" == "Darwin" && "$(uname -m)" == "arm64" ]]; then
+  NODE_ARCH=$(node -p "process.arch")
+  if [[ "$NODE_ARCH" == "x64" ]]; then
+    echo "==> Detected x64 Node on arm64 Mac — rebuilding native modules for arm64..."
+
+    # Re-fetch the arm64 prebuilt binary for better-sqlite3
+    cd node_modules/better-sqlite3
+    npx prebuild-install -r napi --arch arm64 || node-gyp rebuild --release --arch=arm64
+    cd "$ROOT"
+
+    # Ensure the arm64 sqlite-vec optional dependency is present
+    npm install --no-save sqlite-vec-darwin-arm64 2>/dev/null || true
   fi
-done
-# Fall back to the version shipped with VS Code 1.114 (update alongside engines.vscode bumps)
-ELECTRON_VERSION="${ELECTRON_VERSION:-39.8.3}"
-echo "==> Rebuilding native modules for Electron $ELECTRON_VERSION..."
-
-REBUILD_ARCH="$(node -p "process.arch")"
-# On Apple Silicon with x64 Node (Rosetta), explicitly target arm64 to match VS Code
-if [[ "$(uname -s)" == "Darwin" && "$(uname -m)" == "arm64" && "$REBUILD_ARCH" == "x64" ]]; then
-  REBUILD_ARCH="arm64"
-  # Ensure the arm64 sqlite-vec optional dependency is also installed
-  npm install --no-save sqlite-vec-darwin-arm64 2>/dev/null || true
 fi
-
-npx --yes @electron/rebuild -v "$ELECTRON_VERSION" --arch "$REBUILD_ARCH"
 
 echo "==> Packaging VSIX..."
 npx vsce package --no-dependencies --out yoink-dev.vsix
