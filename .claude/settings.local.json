@@ -54,7 +54,8 @@
       "Bash(xargs grep *)",
       "Bash(gh run *)",
       "Bash(git commit -m ' *)",
-      "Bash(echo \"EXIT:$?\")"
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(git stash *)"
     ]
   }
 }

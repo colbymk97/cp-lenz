@@ -1,19 +1,39 @@
 name: Prerelease
 
-# Fires on tags like v0.0.1-alpha.1, v0.1.0-beta.2, v1.0.0-rc.1
-# (any v* tag that contains a hyphen)
 on:
-  push:
-    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g. 0.0.1-alpha.2) — no "v" prefix'
+        required: true
+        type: string
 
 jobs:
+  tag:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      tag: ${{ steps.create.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create and push tag
+        id: create
+        run: |
+          TAG="v${{ github.event.inputs.version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "$TAG"
+          git push origin "$TAG"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
   build:
-    if: contains(github.ref_name, '-')
+    needs: tag
     uses: ./.github/workflows/_build.yml
 
   release:
-    needs: build
-    if: contains(github.ref_name, '-')
+    needs: [tag, build]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -25,6 +45,7 @@ jobs:
 
       - uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ needs.tag.outputs.tag }}
           prerelease: true
           files: '*.vsix'
           generate_release_notes: true
