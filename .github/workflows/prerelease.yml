@@ -52,6 +52,6 @@ jobs:
           generate_release_notes: true
 
       - name: Publish release
-        run: gh release edit ${{ needs.tag.outputs.tag }} --draft=false
+        run: gh release edit ${{ needs.tag.outputs.tag }} --repo ${{ github.repository }} --draft=false
         env:
           GH_TOKEN: ${{ github.token }}
