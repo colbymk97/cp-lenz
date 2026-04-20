@@ -176,7 +176,7 @@ describe('IngestionPipeline', () => {
         };
       }
 
-      // Tarball — pipeline fetches the full repo as a tar.gz
+      // Tarball — full ingest fetches the whole repo as a tar.gz
       if (urlStr.includes('/tarball/')) {
         if (!tarballBuf) {
           tarballBuf = await buildTarGz(
@@ -192,6 +192,17 @@ describe('IngestionPipeline', () => {
               controller.close();
             },
           }),
+        };
+      }
+
+      // Blob — delta sync fetches individual files via the blob API
+      if (urlStr.includes('/git/blobs/')) {
+        const sha = urlStr.split('/blobs/')[1];
+        const idx = parseInt(sha.replace('blob-sha-', ''), 10);
+        const content = isNaN(idx) ? '' : (files[idx]?.content ?? '');
+        return {
+          ok: true, status: 200, statusText: 'OK', headers,
+          text: async () => content,
         };
       }
 
