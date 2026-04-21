@@ -2,6 +2,10 @@ name: _build
 
 on:
   workflow_call:
+    inputs:
+      vsix_version:
+        required: false
+        type: string
 
 jobs:
   build:
@@ -27,11 +31,23 @@ jobs:
 
       - run: npm ci
       - run: npm run build
-      - run: npx vsce package --no-dependencies --target ${{ matrix.target }}
+
+      - name: Resolve VSIX filename
+        id: vsix
+        shell: bash
+        run: |
+          VERSION="${{ inputs.vsix_version }}"
+          if [ -z "$VERSION" ]; then
+            VERSION="$(node -p "require('./package.json').version")"
+          fi
+          NAME="$(node -p "require('./package.json').name")"
+          echo "file=${NAME}-${VERSION}-${{ matrix.target }}.vsix" >> "$GITHUB_OUTPUT"
+
+      - run: npx vsce package --no-dependencies --target ${{ matrix.target }} --out "${{ steps.vsix.outputs.file }}"
 
       - name: Upload VSIX
         uses: actions/upload-artifact@v4
         with:
           name: vsix-${{ matrix.target }}
-          path: '*.vsix'
+          path: ${{ steps.vsix.outputs.file }}
           retention-days: 7

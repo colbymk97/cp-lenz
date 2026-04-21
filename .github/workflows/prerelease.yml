@@ -31,6 +31,8 @@ jobs:
   build:
     needs: tag
     uses: ./.github/workflows/_build.yml
+    with:
+      vsix_version: ${{ github.event.inputs.version }}
 
   release:
     needs: [tag, build]
