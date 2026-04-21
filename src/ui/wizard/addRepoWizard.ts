@@ -80,14 +80,16 @@ export class AddRepoWizard {
       : [];
 
     // Step 6: Sync schedule
-    const schedule = await vscode.window.showQuickPick(
-      [
-        { label: 'On Startup', value: 'onStartup' as const },
-        { label: 'Daily', value: 'daily' as const },
-        { label: 'Manual', value: 'manual' as const },
-      ],
-      { placeHolder: 'Sync schedule', ignoreFocusOut: true },
-    );
+    const scheduleItems = [
+      { label: 'Manual', value: 'manual' as const },
+      { label: 'On Startup', value: 'onStartup' as const },
+      { label: 'Daily', value: 'daily' as const },
+    ];
+    const schedule = await vscode.window.showQuickPick(scheduleItems, {
+      placeHolder: 'Sync schedule',
+      activeItems: [scheduleItems[0]],
+      ignoreFocusOut: true,
+    });
     if (!schedule) return;
 
     // Create data source
