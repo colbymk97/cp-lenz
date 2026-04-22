@@ -38,7 +38,8 @@ jobs:
     needs: tag
     uses: ./.github/workflows/_build.yml
     with:
-      vsix_version: ${{ inputs.version }}
+      include_runtime_dependencies: true
+      vsix_version: ${{ github.event.inputs.version }}
 
   release:
     needs: [tag, build]
