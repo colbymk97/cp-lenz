@@ -7,6 +7,12 @@ on:
         description: 'Version to release (e.g. 0.0.1-alpha.2) — no "v" prefix'
         required: true
         type: string
+  workflow_call:
+    inputs:
+      version:
+        description: 'Version to release (e.g. 0.0.1-alpha.2) — no "v" prefix'
+        required: true
+        type: string
 
 jobs:
   tag:
@@ -21,7 +27,7 @@ jobs:
       - name: Create and push tag
         id: create
         run: |
-          TAG="v${{ github.event.inputs.version }}"
+          TAG="v${{ inputs.version }}"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag "$TAG"
@@ -32,7 +38,7 @@ jobs:
     needs: tag
     uses: ./.github/workflows/_build.yml
     with:
-      vsix_version: ${{ github.event.inputs.version }}
+      vsix_version: ${{ inputs.version }}
 
   release:
     needs: [tag, build]
