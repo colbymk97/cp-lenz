@@ -38,8 +38,10 @@ jobs:
     needs: tag
     uses: ./.github/workflows/_build.yml
     with:
+      electron_version: '39.8.3'
       include_runtime_dependencies: true
-      vsix_version: ${{ github.event.inputs.version }}
+      rebuild_native_modules: true
+      vsix_version: ${{ inputs.version }}
 
   release:
     needs: [tag, build]
