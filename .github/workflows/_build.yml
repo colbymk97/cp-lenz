@@ -3,10 +3,18 @@ name: _build
 on:
   workflow_call:
     inputs:
+      electron_version:
+        required: false
+        type: string
+        default: '39.8.3'
       include_runtime_dependencies:
         required: false
         type: boolean
         default: true
+      rebuild_native_modules:
+        required: false
+        type: boolean
+        default: false
       vsix_version:
         required: false
         type: string
@@ -18,10 +26,13 @@ jobs:
       matrix:
         include:
           - target: linux-x64
+            arch: x64
             os: ubuntu-latest
           - target: darwin-arm64
+            arch: arm64
             os: macos-latest
           - target: win32-x64
+            arch: x64
             os: windows-latest
     runs-on: ${{ matrix.os }}
 
@@ -34,6 +45,19 @@ jobs:
           cache: npm
 
       - run: npm ci
+
+      - name: Rebuild native modules for VS Code Electron
+        if: ${{ inputs.rebuild_native_modules }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx electron-rebuild \
+            --module-dir . \
+            --version "${{ inputs.electron_version }}" \
+            --arch "${{ matrix.arch }}" \
+            --force \
+            --only better-sqlite3
+
       - run: npm run build
 
       - name: Resolve VSIX filename
