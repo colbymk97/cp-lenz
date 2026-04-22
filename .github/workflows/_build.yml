@@ -46,6 +46,10 @@ jobs:
 
       - run: npm ci
 
+      - name: Ensure sqlite-vec package for target
+        shell: bash
+        run: node scripts/ensure-sqlite-vec-target.mjs --target "${{ matrix.target }}"
+
       - name: Rebuild native modules for VS Code Electron
         if: ${{ inputs.rebuild_native_modules }}
         shell: bash
