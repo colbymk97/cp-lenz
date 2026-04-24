@@ -196,14 +196,35 @@ export function registerCommands(
       if (excludeInput === undefined) return;
 
       const excludePatterns = parseCommaSeparatedPatterns(excludeInput);
+      const patternsChanged =
+        !samePatterns(ds.includePatterns, includePatterns) ||
+        !samePatterns(ds.excludePatterns, excludePatterns);
 
-      configManager.updateDataSource(ds.id, {
+      const updates: Partial<DataSourceConfig> = {
         description: description || undefined,
         syncSchedule: schedulePick.value,
         includePatterns,
         excludePatterns,
-      });
-      vscode.window.showInformationMessage(`Updated ${repoLabel}. Sync to apply file pattern changes.`);
+      };
+      if (patternsChanged) {
+        updates.lastSyncCommitSha = null;
+      }
+
+      configManager.updateDataSource(ds.id, updates);
+      if (patternsChanged) {
+        try {
+          await dataSourceManager.sync(ds.id);
+          vscode.window.showInformationMessage(`Updated ${repoLabel}. Re-index queued to apply file pattern changes.`);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          vscode.window.showWarningMessage(
+            `Updated ${repoLabel}, but re-index could not be queued: ${message}`,
+          );
+        }
+        return;
+      }
+
+      vscode.window.showInformationMessage(`Updated ${repoLabel}.`);
     }),
 
     vscode.commands.registerCommand('yoink.exportConfig', async () => {
@@ -247,6 +268,10 @@ function getCurrentDataSource(
 
 function formatDataSourceLabel(ds: Pick<DataSourceConfig, 'owner' | 'repo'>): string {
   return `${ds.owner}/${ds.repo}`;
+}
+
+function samePatterns(a: string[], b: string[]): boolean {
+  return a.length === b.length && a.every((pattern, index) => pattern === b[index]);
 }
 
 async function removeDataSourceWithFeedback(

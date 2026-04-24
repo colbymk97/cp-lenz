@@ -55,6 +55,11 @@ vi.mock('vscode', () => ({
       return quickPick;
     }),
   },
+  workspace: {
+    getConfiguration: () => ({
+      get: (_key: string, defaultValue: unknown) => defaultValue,
+    }),
+  },
   ProgressLocation: { Notification: 15 },
 }));
 
@@ -71,6 +76,7 @@ const generalPresetItem = {
 describe('AddRepoWizard', () => {
   let resolver: any;
   let browser: any;
+  let fetcher: any;
   let dataSourceManager: any;
   let embeddingManager: any;
 
@@ -92,6 +98,11 @@ describe('AddRepoWizard', () => {
     browser = {
       listUserRepos: vi.fn().mockResolvedValue([]),
       listAllUserRepos: vi.fn().mockResolvedValue([]),
+      hasFreshUserRepoCache: vi.fn().mockReturnValue(false),
+    };
+    fetcher = {
+      getBranchSha: vi.fn().mockResolvedValue('sha-main'),
+      getTree: vi.fn().mockResolvedValue({ entries: [], truncated: false }),
     };
     dataSourceManager = {
       add: vi.fn().mockResolvedValue({ id: 'ds-1' }),
@@ -140,9 +151,13 @@ describe('AddRepoWizard', () => {
     });
   }
 
+  function makeWizard() {
+    return new AddRepoWizard(resolver, browser, fetcher, dataSourceManager, embeddingManager);
+  }
+
   it('completes the full wizard flow', async () => {
     setupFullFlow();
-    const wizard = new AddRepoWizard(resolver, browser, dataSourceManager, embeddingManager);
+    const wizard = makeWizard();
 
     await wizard.run();
 
@@ -153,6 +168,7 @@ describe('AddRepoWizard', () => {
         repo: 'widgets',
         branch: 'main',
         type: 'general',
+        description: 'A widget library',
         includePatterns: ['src/**/*.ts'],
         excludePatterns: ['examples/**', '**/*.generated.ts'],
         syncSchedule: 'onStartup',
@@ -173,7 +189,7 @@ describe('AddRepoWizard', () => {
       .mockResolvedValueOnce(generalPresetItem)
       .mockResolvedValueOnce({ label: 'On Startup', value: 'onStartup' });
 
-    const wizard = new AddRepoWizard(resolver, browser, dataSourceManager, embeddingManager);
+    const wizard = makeWizard();
     await wizard.run();
 
     expect(resolver.resolve).toHaveBeenCalledWith('acme', 'widgets');
@@ -195,7 +211,7 @@ describe('AddRepoWizard', () => {
       quickPick._hide();
     });
 
-    const wizard = new AddRepoWizard(resolver, browser, dataSourceManager, embeddingManager);
+    const wizard = makeWizard();
     await wizard.run();
 
     expect(dataSourceManager.add).not.toHaveBeenCalled();
@@ -204,7 +220,7 @@ describe('AddRepoWizard', () => {
   it('cancels when the first repository input quick pick is dismissed', async () => {
     quickPickState.drivers.push((quickPick) => quickPick._hide());
 
-    const wizard = new AddRepoWizard(resolver, browser, dataSourceManager, embeddingManager);
+    const wizard = makeWizard();
     await wizard.run();
 
     expect(dataSourceManager.add).not.toHaveBeenCalled();
@@ -227,7 +243,7 @@ describe('AddRepoWizard', () => {
       .mockImplementationOnce(async (opts: any) => opts.value) // accept pre-filled include value
       .mockResolvedValueOnce('');
 
-    const wizard = new AddRepoWizard(resolver, browser, dataSourceManager, embeddingManager);
+    const wizard = makeWizard();
     await wizard.run();
 
     expect(dataSourceManager.add).toHaveBeenCalledWith(
@@ -243,7 +259,7 @@ describe('AddRepoWizard', () => {
     queueRepoInputChoice('url');
     (vscode.window.showInputBox as any).mockResolvedValueOnce(undefined);
 
-    const wizard = new AddRepoWizard(resolver, browser, dataSourceManager, embeddingManager);
+    const wizard = makeWizard();
     await wizard.run();
 
     expect(dataSourceManager.add).not.toHaveBeenCalled();
@@ -257,7 +273,7 @@ describe('AddRepoWizard', () => {
     // Branch cancelled
     (vscode.window.showInputBox as any).mockResolvedValueOnce(undefined);
 
-    const wizard = new AddRepoWizard(resolver, browser, dataSourceManager, embeddingManager);
+    const wizard = makeWizard();
     await wizard.run();
 
     expect(dataSourceManager.add).not.toHaveBeenCalled();
@@ -286,11 +302,45 @@ describe('AddRepoWizard', () => {
       .mockResolvedValueOnce('')
       .mockResolvedValueOnce('fixtures/**');
 
-    const wizard = new AddRepoWizard(resolver, browser, dataSourceManager, embeddingManager);
+    const wizard = makeWizard();
     await wizard.run();
 
     expect(browser.listAllUserRepos).toHaveBeenCalled();
     expect(dataSourceManager.add).toHaveBeenCalled();
+  });
+
+  it('can refresh the cached repository list while browsing repos', async () => {
+    browser.listAllUserRepos
+      .mockResolvedValueOnce([
+        { owner: 'old', repo: 'repo', fullName: 'old/repo', description: null, private: false },
+      ])
+      .mockResolvedValueOnce([
+        { owner: 'acme', repo: 'widgets', fullName: 'acme/widgets', description: 'Desc', private: false },
+      ]);
+
+    queueRepoInputChoice('browse');
+    (vscode.window.showQuickPick as any)
+      .mockResolvedValueOnce({ label: '$(refresh) Refresh repository list', value: 'refresh' })
+      .mockResolvedValueOnce({
+        label: 'acme/widgets',
+        value: 'repo',
+        repo: { owner: 'acme', repo: 'widgets' },
+      })
+      .mockResolvedValueOnce(generalPresetItem)
+      .mockResolvedValueOnce({ label: 'Manual', value: 'manual' });
+    (vscode.window.showInputBox as any)
+      .mockResolvedValueOnce('main')
+      .mockResolvedValueOnce('')
+      .mockResolvedValueOnce('');
+
+    const wizard = makeWizard();
+    await wizard.run();
+
+    expect(browser.listAllUserRepos).toHaveBeenNthCalledWith(1, { forceRefresh: false });
+    expect(browser.listAllUserRepos).toHaveBeenNthCalledWith(2, { forceRefresh: true });
+    expect(dataSourceManager.add).toHaveBeenCalledWith(
+      expect.objectContaining({ owner: 'acme', repo: 'widgets' }),
+    );
   });
 
   it('handles empty include patterns', async () => {
@@ -305,7 +355,7 @@ describe('AddRepoWizard', () => {
       .mockResolvedValueOnce('') // empty include
       .mockResolvedValueOnce('examples/**, vendor/**'); // custom excludes
 
-    const wizard = new AddRepoWizard(resolver, browser, dataSourceManager, embeddingManager);
+    const wizard = makeWizard();
     await wizard.run();
 
     expect(dataSourceManager.add).toHaveBeenCalledWith(
@@ -328,11 +378,69 @@ describe('AddRepoWizard', () => {
       .mockResolvedValueOnce('src/**/*.ts')
       .mockResolvedValueOnce('');
 
-    const wizard = new AddRepoWizard(resolver, browser, dataSourceManager, embeddingManager);
+    const wizard = makeWizard();
     await wizard.run();
 
     expect(dataSourceManager.add).toHaveBeenCalledWith(
       expect.objectContaining({ excludePatterns: [] }),
     );
+  });
+
+  it('warns before adding a large data source and continues when accepted', async () => {
+    queueRepoInputChoice('url');
+    (vscode.window.showQuickPick as any)
+      .mockResolvedValueOnce(generalPresetItem)
+      .mockResolvedValueOnce({ label: 'Manual', value: 'manual' });
+    (vscode.window.showInputBox as any)
+      .mockResolvedValueOnce('https://github.com/acme/widgets')
+      .mockResolvedValueOnce('main')
+      .mockResolvedValueOnce('')
+      .mockResolvedValueOnce('');
+    fetcher.getTree.mockResolvedValue({
+      entries: Array.from({ length: 1000 }, (_, i) => ({
+        path: `src/file-${i}.ts`,
+        sha: `sha-${i}`,
+        size: 100,
+        type: 'blob',
+      })),
+      truncated: false,
+    });
+    (vscode.window.showWarningMessage as any).mockResolvedValueOnce('Continue');
+
+    const wizard = makeWizard();
+    await wizard.run();
+
+    expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(
+      expect.stringContaining('may take a while to index'),
+      { modal: true },
+      'Continue',
+      'Cancel',
+    );
+    expect(dataSourceManager.add).toHaveBeenCalled();
+  });
+
+  it('cancels when the large data source warning is declined', async () => {
+    queueRepoInputChoice('url');
+    (vscode.window.showQuickPick as any).mockResolvedValueOnce(generalPresetItem);
+    (vscode.window.showInputBox as any)
+      .mockResolvedValueOnce('https://github.com/acme/widgets')
+      .mockResolvedValueOnce('main')
+      .mockResolvedValueOnce('')
+      .mockResolvedValueOnce('');
+    fetcher.getTree.mockResolvedValue({
+      entries: Array.from({ length: 1000 }, (_, i) => ({
+        path: `src/file-${i}.ts`,
+        sha: `sha-${i}`,
+        size: 100,
+        type: 'blob',
+      })),
+      truncated: false,
+    });
+    (vscode.window.showWarningMessage as any).mockResolvedValueOnce('Cancel');
+
+    const wizard = makeWizard();
+    await wizard.run();
+
+    expect(dataSourceManager.add).not.toHaveBeenCalled();
   });
 });

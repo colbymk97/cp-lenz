@@ -12,6 +12,7 @@ export interface AddDataSourceOptions {
   repo: string;
   branch: string;
   type: DataSourceType;
+  description?: string;
   includePatterns: string[];
   excludePatterns: string[];
   syncSchedule: 'manual' | 'onStartup' | 'daily';

@@ -265,14 +265,22 @@ describe('registerCommands', () => {
 
     await commands.get('yoink.editDataSourceFromTree')!({ dataSource: editable } as any);
 
+    expect(vscode.window.showInputBox).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'Edit acme/widgets (1/4)',
+        value: 'old description',
+      }),
+    );
     expect(configManager.updateDataSource).toHaveBeenCalledWith('ds-1', {
       description: 'new description',
       syncSchedule: 'daily',
       includePatterns: ['src/**/*.ts', 'docs/**/*.md'],
       excludePatterns: ['examples/**', 'vendor/**'],
+      lastSyncCommitSha: null,
     });
+    expect(dataSourceManager.sync).toHaveBeenCalledWith('ds-1');
     expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
-      'Updated acme/widgets. Sync to apply file pattern changes.',
+      'Updated acme/widgets. Re-index queued to apply file pattern changes.',
     );
   });
 
@@ -293,7 +301,41 @@ describe('registerCommands', () => {
       syncSchedule: 'manual',
       includePatterns: ['src/**/*.ts'],
       excludePatterns: [],
+      lastSyncCommitSha: null,
     });
+    expect(dataSourceManager.sync).toHaveBeenCalledWith('ds-1');
+  });
+
+  it('editDataSourceFromTree does not reindex when patterns are unchanged', async () => {
+    const editable = {
+      ...ds1,
+      description: 'old description',
+      includePatterns: ['src/**/*.ts'],
+      excludePatterns: ['fixtures/**'],
+      syncSchedule: 'manual' as const,
+    };
+    configManager.getDataSource.mockReturnValue(editable);
+    (vscode.window.showInputBox as any)
+      .mockResolvedValueOnce('new description')
+      .mockResolvedValueOnce('src/**/*.ts')
+      .mockResolvedValueOnce('fixtures/**');
+    (vscode.window.showQuickPick as any).mockResolvedValueOnce({
+      label: 'Manual',
+      value: 'manual',
+    });
+
+    await commands.get('yoink.editDataSourceFromTree')!({ dataSource: editable } as any);
+
+    expect(configManager.updateDataSource).toHaveBeenCalledWith('ds-1', {
+      description: 'new description',
+      syncSchedule: 'manual',
+      includePatterns: ['src/**/*.ts'],
+      excludePatterns: ['fixtures/**'],
+    });
+    expect(dataSourceManager.sync).not.toHaveBeenCalled();
+    expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
+      'Updated acme/widgets.',
+    );
   });
 
   it('editDataSourceFromTree cancels without saving when exclude input is dismissed', async () => {

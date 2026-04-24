@@ -141,7 +141,7 @@ export function activate(context: vscode.ExtensionContext): void {
     dataSourceManager,
     embeddingManager,
     providerRegistry,
-    () => new AddRepoWizard(resolver, browser, dataSourceManager, embeddingManager),
+    () => new AddRepoWizard(resolver, browser, fetcher, dataSourceManager, embeddingManager),
     workspaceConfigManager,
     agentInstaller,
   );

@@ -1,11 +1,19 @@
 import * as vscode from 'vscode';
 import { parseRepoUrl, isRepoUrlResult, GitHubResolver } from '../../sources/github/githubResolver';
-import { RepoBrowser } from '../../sources/github/repoBrowser';
+import { RepoBrowser, RepoSearchResult } from '../../sources/github/repoBrowser';
+import { GitHubFetcher, filterEligibleEntries } from '../../sources/github/githubFetcher';
 import { DataSourceManager, AddDataSourceOptions } from '../../sources/dataSourceManager';
 import { DEFAULT_EXCLUDE_PATTERNS } from '../../config/configSchema';
 import { REPO_TYPE_PRESETS } from '../../config/repoTypePresets';
 import { EmbeddingManager } from '../../embedding/manager';
 import { parseCommaSeparatedPatterns } from '../patternInput';
+import { FileFilter } from '../../ingestion/fileFilter';
+import { SETTING_KEYS } from '../../config/settingsSchema';
+import { formatCost, getPricingForModel } from '../../embedding/pricing';
+
+const LARGE_INDEX_FILE_COUNT_WARNING = 1_000;
+const LARGE_INDEX_BYTE_WARNING = 10_000_000;
+const LARGE_INDEX_TOKEN_WARNING = 500_000;
 
 type RepoInputChoice =
   | (vscode.QuickPickItem & { value: 'url' | 'browse' })
@@ -18,6 +26,7 @@ export class AddRepoWizard {
   constructor(
     private readonly resolver: GitHubResolver,
     private readonly browser: RepoBrowser,
+    private readonly fetcher: GitHubFetcher,
     private readonly dataSourceManager: DataSourceManager,
     private readonly embeddingManager: EmbeddingManager,
   ) {}
@@ -86,6 +95,10 @@ export class AddRepoWizard {
     if (excludeInput === undefined) return;
     const excludePatterns = parseCommaSeparatedPatterns(excludeInput);
 
+    if (!(await this.confirmLargeIndex(metadata.owner, metadata.repo, branch, includePatterns, excludePatterns))) {
+      return;
+    }
+
     // Step 7: Sync schedule
     const scheduleItems = [
       { label: 'Manual', value: 'manual' as const },
@@ -105,6 +118,7 @@ export class AddRepoWizard {
       repo: metadata.repo,
       branch,
       type: selectedPreset.id,
+      description: metadata.description ?? undefined,
       includePatterns,
       excludePatterns,
       syncSchedule: schedule.value,
@@ -139,22 +153,52 @@ export class AddRepoWizard {
       return isRepoUrlResult(result) ? result : undefined;
     }
 
-    // Browse repos — fetch all pages so large orgs (600+ repos) are fully searchable
-    const repos = await vscode.window.withProgress(
-      { location: vscode.ProgressLocation.Notification, title: 'Loading repositories…' },
-      () => this.browser.listAllUserRepos(),
-    );
-    const picked = await vscode.window.showQuickPick(
-      repos.map((r) => ({
-        label: r.fullName,
-        description: r.description ?? '',
-        detail: r.private ? '$(lock) Private' : '$(globe) Public',
-        repo: r,
-      })),
-      { placeHolder: 'Select a repository', ignoreFocusOut: true },
-    );
+    const picked = await this.pickBrowsedRepository();
     if (!picked) return undefined;
-    return { owner: picked.repo.owner, repo: picked.repo.repo };
+    return { owner: picked.owner, repo: picked.repo };
+  }
+
+  private async pickBrowsedRepository(): Promise<{ owner: string; repo: string } | undefined> {
+    let forceRefresh = false;
+    while (true) {
+      const repos = await this.loadUserRepositories(forceRefresh);
+      forceRefresh = false;
+      const refreshItem = {
+        label: '$(refresh) Refresh repository list',
+        description: this.browser.hasFreshUserRepoCache()
+          ? 'Reload from GitHub'
+          : 'Loaded from GitHub',
+        value: 'refresh' as const,
+      };
+      const repoItems = repos.map((repo) => ({
+        label: repo.fullName,
+        description: repo.description ?? '',
+        detail: repo.private ? '$(lock) Private' : '$(globe) Public',
+        value: 'repo' as const,
+        repo,
+      }));
+      const picked = await vscode.window.showQuickPick(
+        [refreshItem, ...repoItems],
+        { placeHolder: 'Select a repository', ignoreFocusOut: true },
+      );
+      if (!picked) return undefined;
+      if (picked.value === 'refresh') {
+        forceRefresh = true;
+        continue;
+      }
+      return picked.repo;
+    }
+  }
+
+  private async loadUserRepositories(forceRefresh: boolean): Promise<RepoSearchResult[]> {
+    if (!forceRefresh && this.browser.hasFreshUserRepoCache()) {
+      return this.browser.listAllUserRepos();
+    }
+
+    return vscode.window.withProgress(
+      { location: vscode.ProgressLocation.Notification, title: 'Loading repositories...' },
+      () => this.browser.listAllUserRepos({ forceRefresh }),
+    );
   }
 
   private pickRepoInputChoice(): Promise<RepoInputChoice | undefined> {
@@ -211,4 +255,58 @@ export class AddRepoWizard {
       quickPick.show();
     });
   }
+
+  private async confirmLargeIndex(
+    owner: string,
+    repo: string,
+    branch: string,
+    includePatterns: string[],
+    excludePatterns: string[],
+  ): Promise<boolean> {
+    const sha = await this.fetcher.getBranchSha(owner, repo, branch);
+    const { entries } = await this.fetcher.getTree(owner, repo, sha);
+    const filter = new FileFilter(
+      includePatterns,
+      [...excludePatterns, ...DEFAULT_EXCLUDE_PATTERNS],
+    );
+    const filteredEntries = entries.filter((entry) => filter.matches(entry.path));
+    const eligibleEntries = filterEligibleEntries(filteredEntries);
+    const totalBytes = eligibleEntries.reduce((sum, entry) => sum + entry.size, 0);
+    const estimatedTokens = Math.ceil(totalBytes / 4);
+
+    if (
+      eligibleEntries.length < LARGE_INDEX_FILE_COUNT_WARNING &&
+      totalBytes < LARGE_INDEX_BYTE_WARNING &&
+      estimatedTokens < LARGE_INDEX_TOKEN_WARNING
+    ) {
+      return true;
+    }
+
+    const model = vscode.workspace.getConfiguration().get<string>(
+      SETTING_KEYS.OPENAI_MODEL,
+      'text-embedding-3-small',
+    );
+    const estimatedCost = formatCost(estimatedTokens, getPricingForModel(model).costPerToken);
+    const costText = estimatedCost ? ` Estimated embedding cost: ${estimatedCost}.` : '';
+    const choice = await vscode.window.showWarningMessage(
+      `${owner}/${repo} may take a while to index: ${formatNumber(eligibleEntries.length)} files, ` +
+      `${formatBytes(totalBytes)}, about ${formatNumber(estimatedTokens)} tokens.${costText}`,
+      { modal: true },
+      'Continue',
+      'Cancel',
+    );
+
+    return choice === 'Continue';
+  }
+}
+
+function formatNumber(value: number): string {
+  return value.toLocaleString('en-US');
+}
+
+function formatBytes(value: number): string {
+  if (value < 1_000_000) {
+    return `${Math.round(value / 1_000)} KB`;
+  }
+  return `${(value / 1_000_000).toFixed(1)} MB`;
 }
