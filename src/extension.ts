@@ -100,6 +100,7 @@ export function activate(context: vscode.ExtensionContext): void {
   );
   const dataSourceManager = new DataSourceManager(configManager, pipeline, embeddingManager);
   dataSourceManagerRef.current = dataSourceManager;
+  dataSourceManager.recoverInterruptedDeletions();
 
   // Retrieval
   const retriever = new Retriever(chunkStore, embeddingStore);

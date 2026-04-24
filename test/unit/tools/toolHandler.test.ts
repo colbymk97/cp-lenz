@@ -126,6 +126,24 @@ describe('ToolHandler', () => {
       );
     });
 
+    it('excludes deleting data sources even when they have chunks', async () => {
+      const ds1 = makeDs('ds-1', 'ready');
+      const ds2 = makeDs('ds-2', 'deleting');
+      const { handler, retriever } = makeHandler([ds1, ds2], [], { 'ds-2': 3 });
+
+      await handler.handleGlobalSearch(
+        { input: { query: 'test query' } } as any,
+        dummyToken as any,
+      );
+
+      expect(retriever.search).toHaveBeenCalledWith(
+        'test query',
+        ['ds-1'],
+        expect.anything(),
+        10,
+      );
+    });
+
     it('filters by repository parameter', async () => {
       const ds1 = makeDs('ds-1', 'ready');
       const ds2 = makeDs('ds-2', 'ready');
@@ -220,12 +238,38 @@ describe('ToolHandler', () => {
       expect(result.parts[0].value).toContain('50 chunks');
     });
 
+    it('lists deleting sources without searchable partial stats', async () => {
+      const ds1 = makeDs('ds-1', 'deleting');
+      const { handler, chunkStore } = makeHandler([ds1], [], { 'ds-1': 4 });
+
+      const result = await handler.handleList(dummyToken as any);
+
+      expect(chunkStore.getDataSourceStats).not.toHaveBeenCalled();
+      expect(result.parts[0].value).toContain('test/ds-1@main');
+      expect(result.parts[0].value).toContain('deleting');
+      expect(result.parts[0].value).not.toContain('[partial]');
+    });
+
     it('returns no data sources message when empty', async () => {
       const { handler } = makeHandler([]);
 
       const result = await handler.handleList(dummyToken as any);
 
       expect(result.parts[0].value).toContain('No data sources configured');
+    });
+  });
+
+  describe('source filtering', () => {
+    it('does not treat deleting sources as available to file-tree tools', async () => {
+      const ds1 = makeDs('ds-1', 'deleting');
+      const { handler } = makeHandler([ds1], [], { 'ds-1': 4 });
+
+      const result = await handler.handleFileTree(
+        { input: { repository: 'test/ds-1' } } as any,
+        dummyToken as any,
+      );
+
+      expect(result.parts[0].value).toContain('No repositories are indexed yet');
     });
   });
 });
