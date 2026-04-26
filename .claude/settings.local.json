@@ -61,7 +61,9 @@
       "Bash(git commit *)",
       "Bash(python3 -c \"import json,sys; jobs=json.load\\(sys.stdin\\)['jobs']; [print\\(j['name'], j['conclusion']\\) for j in jobs]\")",
       "Bash(git merge *)",
-      "Bash(bash *)"
+      "Bash(bash *)",
+      "Bash(gh auth *)",
+      "Bash(claude mcp *)"
     ]
   }
 }

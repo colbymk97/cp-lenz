@@ -70,7 +70,8 @@ export class Chunker {
       }
     }
     const raw = await this.dispatch(strategy, content, filePath);
-    return this.enforceInputLimit(raw);
+    const nonEmpty = raw.filter((c) => c.content.trim().length > 0);
+    return this.enforceInputLimit(nonEmpty);
   }
 
   /**

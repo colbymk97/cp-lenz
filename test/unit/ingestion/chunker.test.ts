@@ -319,6 +319,15 @@ describe('Chunker — markdown-heading strategy (forced)', () => {
     const chunker = new Chunker({ strategy: 'markdown-heading' });
     expect(await chunker.chunkFile('', 'empty.md')).toEqual([]);
   });
+
+  it('never produces whitespace-only chunks from headings with no body', async () => {
+    const chunker = new Chunker({ strategy: 'markdown-heading' });
+    const content = '# First\n\n## Second\n\n### Third\n';
+    const chunks = await chunker.chunkFile(content, 'readme.md');
+    for (const chunk of chunks) {
+      expect(chunk.content.trim().length).toBeGreaterThan(0);
+    }
+  });
 });
 
 describe('Chunker — ast-based strategy (forced)', () => {
