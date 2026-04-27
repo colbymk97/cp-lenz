@@ -51,7 +51,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          VERSION="${{ inputs.vsix_version }}"
+          export VERSION="${{ inputs.vsix_version }}"
           echo "Overriding package manifest version to ${VERSION} for packaging"
           node -e '
             const fs = require("fs");
