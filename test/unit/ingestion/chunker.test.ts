@@ -159,11 +159,14 @@ describe('Chunker.routeStrategy', () => {
   it('routes GitHub Actions workflow YAML to file-level', () => {
     expect(Chunker.routeStrategy('.github/workflows/ci.yml')).toBe('file-level');
     expect(Chunker.routeStrategy('.github/workflows/release.yaml')).toBe('file-level');
+    expect(Chunker.routeStrategy('.github\\workflows\\ci.yml')).toBe('file-level');
+    expect(Chunker.routeStrategy('C:\\repo\\.github\\workflows\\release.yaml')).toBe('file-level');
   });
 
   it('routes action.yml/action.yaml to file-level', () => {
     expect(Chunker.routeStrategy('action.yml')).toBe('file-level');
     expect(Chunker.routeStrategy('actions/checkout/action.yaml')).toBe('file-level');
+    expect(Chunker.routeStrategy('actions\\checkout\\action.yml')).toBe('file-level');
   });
 
   it('falls back to token-split for unknown file types', () => {
@@ -378,6 +381,23 @@ describe('Chunker — per-input limit', () => {
     expect(chunks.length).toBeGreaterThan(1);
     for (const chunk of chunks) {
       expect(chunk.tokenCount).toBeLessThanOrEqual(8000);
+    }
+  });
+
+  it('re-splits dense slices that still exceed the per-input cap', async () => {
+    const denseCount = (text: string): number =>
+      Array.from(text).reduce((acc, ch) => acc + (ch === 'x' ? 1 : 0), 0);
+    const chunker = new Chunker({
+      strategy: 'file-level',
+      countTokens: denseCount,
+      maxInputTokens: 10,
+    });
+    const huge = `${'x'.repeat(30)}${'a'.repeat(300)}`;
+    const chunks = await chunker.chunkFile(huge, 'blob.css');
+
+    expect(chunks.length).toBeGreaterThan(1);
+    for (const chunk of chunks) {
+      expect(chunk.tokenCount).toBeLessThanOrEqual(10);
     }
   });
 });
