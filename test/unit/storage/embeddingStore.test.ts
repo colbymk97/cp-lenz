@@ -104,6 +104,18 @@ describe('EmbeddingStore', () => {
     expect(results).toHaveLength(1);
   });
 
+  it('deletes embeddings by data source', () => {
+    embeddingStore.insert('c1', [1.0, 0.0, 0.0, 0.0]);
+    embeddingStore.insert('c2', [0.9, 0.1, 0.0, 0.0]);
+    embeddingStore.insert('c3', [0.8, 0.2, 0.0, 0.0]);
+
+    embeddingStore.deleteByDataSource('ds1');
+
+    const results = embeddingStore.searchAll([1.0, 0.0, 0.0, 0.0], 10);
+    expect(results).toHaveLength(1);
+    expect(results[0].chunkId).toBe('c3');
+  });
+
   it('searches scoped to specific data sources', () => {
     embeddingStore.insert('c1', [1.0, 0.0, 0.0, 0.0]); // ds1
     embeddingStore.insert('c2', [0.9, 0.1, 0.0, 0.0]); // ds1

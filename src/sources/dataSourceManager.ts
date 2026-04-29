@@ -100,6 +100,7 @@ export class DataSourceManager implements vscode.Disposable {
     try {
       await this.pipeline.removeDataSource(id);
       this.configManager.removeDataSource(id);
+      this.configManager.flush();
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       this.configManager.updateDataSource(id, {

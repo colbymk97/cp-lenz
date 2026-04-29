@@ -142,6 +142,7 @@ describe('DataSourceManager', () => {
 
     expect(pipeline.removeDataSource).toHaveBeenCalledWith(ds.id);
     expect(configManager.removeDataSource).toHaveBeenCalledWith(ds.id);
+    expect(configManager.flush).toHaveBeenCalledTimes(2);
   });
 
   it('remove marks the data source as deleting before cleanup', async () => {

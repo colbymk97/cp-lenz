@@ -17,6 +17,7 @@ function toVecBlob(embedding: number[]): Buffer {
 export class EmbeddingStore {
   private insertStmt!: Database.Statement;
   private deleteStmt!: Database.Statement;
+  private deleteByDataSourceStmt!: Database.Statement;
   private clearStmt!: Database.Statement;
   private countStmt!: Database.Statement;
   private searchAllStmt!: Database.Statement;
@@ -34,6 +35,12 @@ export class EmbeddingStore {
       'INSERT INTO embeddings (chunk_id, embedding) VALUES (?, ?)',
     );
     this.deleteStmt = this.db.prepare('DELETE FROM embeddings WHERE chunk_id = ?');
+    this.deleteByDataSourceStmt = this.db.prepare(`
+      DELETE FROM embeddings
+      WHERE chunk_id IN (
+        SELECT id FROM chunks WHERE data_source_id = ?
+      )
+    `);
     this.clearStmt = this.db.prepare('DELETE FROM embeddings');
     this.countStmt = this.db.prepare('SELECT COUNT(*) as count FROM embeddings');
     this.searchAllStmt = this.db.prepare(`
@@ -66,6 +73,10 @@ export class EmbeddingStore {
       }
     });
     tx(chunkIds);
+  }
+
+  deleteByDataSource(dataSourceId: string): void {
+    this.deleteByDataSourceStmt.run(dataSourceId);
   }
 
   clearAll(): void {

@@ -651,10 +651,10 @@ export class IngestionPipeline {
   }
 
   async removeDataSource(dataSourceId: string): Promise<void> {
-    const chunkIds = this.chunkStore.getChunkIdsByDataSource(dataSourceId);
-    this.embeddingStore.deleteByChunkIds(chunkIds);
+    this.embeddingStore.deleteByDataSource(dataSourceId);
     this.chunkStore.deleteByDataSource(dataSourceId);
     this.indexingRunStore.deleteByDataSource(dataSourceId);
+    this.progressTracker?.complete(dataSourceId);
   }
 
   dispose(): void {
