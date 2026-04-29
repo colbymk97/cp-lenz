@@ -37,6 +37,13 @@ export interface BlobStreamOptions {
   onFileError?: (entry: FileTreeEntry, error: Error) => Promise<void> | void;
 }
 
+export interface GitHubContentEntry {
+  name: string;
+  path: string;
+  type: 'file' | 'dir' | 'symlink' | 'submodule';
+  size?: number;
+}
+
 export class GitHubFetcher {
   private rateLimitRemaining: number = Infinity;
   private rateLimitResetAt: Date = new Date(0);
@@ -245,6 +252,42 @@ export class GitHubFetcher {
     }
 
     return res.text();
+  }
+
+  async getDirectoryContents(
+    owner: string,
+    repo: string,
+    path: string,
+    branch: string,
+  ): Promise<GitHubContentEntry[]> {
+    await this.waitForRateLimit();
+    const token = await this.getToken();
+    const encodedPath = path
+      ? `/${path.split('/').map(enc).join('/')}`
+      : '';
+    const res = await fetch(
+      `${GITHUB_API}/repos/${enc(owner)}/${enc(repo)}/contents${encodedPath}?ref=${enc(branch)}`,
+      { headers: githubHeaders(token) },
+    );
+    this.updateRateLimit(res);
+
+    if (!res.ok) {
+      if (res.status === 404) {
+        throw new Error(
+          `Directory "${path || '/'}" was not found in ${owner}/${repo} on branch "${branch}".`,
+        );
+      }
+      if (res.status === 401 || res.status === 403) {
+        throw new Error(`Cannot access ${owner}/${repo}: insufficient token permissions.`);
+      }
+      throw new Error(`GitHub API error ${res.status}: ${res.statusText}`);
+    }
+
+    const data = await res.json() as GitHubContentEntry | GitHubContentEntry[];
+    if (!Array.isArray(data)) {
+      throw new Error(`Path "${path || '/'}" in ${owner}/${repo} is not a directory.`);
+    }
+    return data;
   }
 
   async getBranchSha(owner: string, repo: string, branch: string): Promise<string> {

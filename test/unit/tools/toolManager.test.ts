@@ -31,6 +31,7 @@ describe('ToolManager', () => {
     toolHandler = {
       handleGlobalSearch: vi.fn(),
       handleList: vi.fn(),
+      handleGetReadme: vi.fn(),
     };
 
     logger = {
@@ -40,12 +41,13 @@ describe('ToolManager', () => {
     };
   });
 
-  it('registerAll registers both global search and list tools', () => {
+  it('registerAll registers the built-in tools', () => {
     const manager = new ToolManager(toolHandler, logger);
     manager.registerAll();
 
     expect(registeredTools.has('yoink-search')).toBe(true);
     expect(registeredTools.has('yoink-list')).toBe(true);
+    expect(registeredTools.has('yoink-get-readme')).toBe(true);
     manager.dispose();
   });
 
@@ -97,6 +99,20 @@ describe('ToolManager', () => {
     manager.dispose();
   });
 
+  it('get-readme tool invokes toolHandler.handleGetReadme', async () => {
+    const manager = new ToolManager(toolHandler, logger);
+    manager.registerAll();
+
+    const handler = registeredTools.get('yoink-get-readme');
+    const mockOptions = { input: { repository: 'test/repo' } };
+    const mockToken = { isCancellationRequested: false };
+
+    await handler.invoke(mockOptions, mockToken);
+
+    expect(toolHandler.handleGetReadme).toHaveBeenCalledWith(mockOptions, mockToken);
+    manager.dispose();
+  });
+
   it('dispose cleans up all registered tools', () => {
     const manager = new ToolManager(toolHandler, logger);
     manager.registerAll();
@@ -105,5 +121,6 @@ describe('ToolManager', () => {
 
     expect(disposedTools).toContain('yoink-search');
     expect(disposedTools).toContain('yoink-list');
+    expect(disposedTools).toContain('yoink-get-readme');
   });
 });

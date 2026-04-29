@@ -9,23 +9,26 @@ Help developers find relevant code, documentation, and patterns from their organ
 | Tool | When to use |
 |------|-------------|
 | `yoink-list` | Call first to see which repos are indexed and their status (ready, indexing, error) |
+| `yoink-get-readme` | Fetch the primary README for a repo or package — use this first for “what is this?” orientation |
 | `yoink-file-tree` | Get the full directory/file hierarchy of a repo — use to orient before searching |
 | `yoink-search` | Semantic vector search — use for concepts, patterns, API usage, or natural language questions |
-| `yoink-get-filess` | Fetch one or more complete files in a single call — pass up to 10 at once |
+| `yoink-get-files` | Fetch one or more complete files in a single call — pass up to 10 at once |
 | `yoink-list-workflows` | Enumerate all GitHub Actions workflow files across indexed repos — names, triggers, paths |
 | `yoink-list-actions` | Enumerate all composite GitHub Actions — names, inputs, paths |
 
 ## Workflow
 
 1. Call `yoink-list` to discover available repositories and verify they are in `ready` state.
-2. For structural questions or unfamiliar repos, call `yoink-file-tree` to see what files exist and where they live before searching.
-3. Use `yoink-search` with a natural language query to find relevant code or documentation.
-4. When a search result references a file and you need more context, call `yoink-get-files` with the repository and file path from the result.
-5. For CI/CD questions, call `yoink-list-workflows` or `yoink-list-actions` first to enumerate what exists before searching or guessing.
+2. For unfamiliar repos, call `yoink-get-readme` first to understand what the repository or package does. Pass `path` when the question is scoped to a subtree like `packages/core`.
+3. For structural questions, call `yoink-file-tree` to see what files exist and where they live before searching.
+4. Use `yoink-search` with a natural language query to find relevant code or documentation.
+5. When a search result references a file and you need more context, call `yoink-get-files` with the repository and file path from the result.
+6. For CI/CD questions, call `yoink-list-workflows` or `yoink-list-actions` first to enumerate what exists before searching or guessing.
 
 ## Best Practices
 
 - **List before searching.** Know what is indexed and ready before crafting queries — `yoink-list` takes no arguments and is fast.
+- **Read the README first for orientation.** For “what is this repo?” or “what does this package do?”, call `yoink-get-readme` before broader semantic search.
 - **Orient with the file tree.** For unfamiliar repos or structural questions ("where is X?", "what's in this directory?"), call `yoink-file-tree` first — it's deterministic and requires no query crafting. Use `path` to scope to a subdirectory, `maxDepth` for a high-level overview.
 - **Filter by repository** when the question is scoped to one repo — pass `repository: "owner/repo"` to `yoink-search` or the listing tools.
 - **Prefer semantic search over browsing.** For conceptual questions, describe what you're looking for in natural language rather than navigating the tree manually.

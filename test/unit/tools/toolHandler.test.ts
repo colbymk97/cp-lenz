@@ -55,6 +55,7 @@ function makeHandler(
   fileContents: Record<string, string | Error> = {},
   fileStats: any[] = [],
   chunks: any[] = [],
+  directoryContents: Record<string, Array<{ name: string; path: string; type: string }> | Error> = {},
 ) {
   const dsMap = new Map(dataSources.map((ds) => [ds.id, ds]));
 
@@ -88,6 +89,12 @@ function makeHandler(
       (_owner: string, _repo: string, filePath: string) => {
         const value = fileContents[filePath];
         return value instanceof Error ? Promise.reject(value) : Promise.resolve(value ?? '');
+      },
+    ),
+    getDirectoryContents: vi.fn().mockImplementation(
+      (_owner: string, _repo: string, path: string) => {
+        const value = directoryContents[path];
+        return value instanceof Error ? Promise.reject(value) : Promise.resolve(value ?? []);
       },
     ),
   } as any;
@@ -584,6 +591,206 @@ describe('ToolHandler', () => {
 
       expect(result.parts[0].value).toContain('Error: file too large');
       expect(result.parts[0].value).toContain('Use startLine/endLine');
+    });
+  });
+
+  describe('handleGetReadme', () => {
+    it('returns the root README.md when present', async () => {
+      const { handler, fetcher } = makeHandler(
+        [makeDs('repo')],
+        [],
+        {},
+        { 'README.md': '# Yoink\n' },
+        [],
+        [],
+        { '': [{ name: 'README.md', path: 'README.md', type: 'file' }] },
+      );
+
+      const result = await handler.handleGetReadme(
+        { input: { repository: 'test/repo' } } as any,
+        dummyToken as any,
+      );
+
+      expect(fetcher.getDirectoryContents).toHaveBeenCalledWith('test', 'repo', '', 'main');
+      expect(fetcher.getFileContents).toHaveBeenCalledWith('test', 'repo', 'README.md', 'main');
+      expect(result.parts[0].value).toContain('`README.md`');
+      expect(result.parts[0].value).toContain('# Yoink');
+    });
+
+    it('falls back to README.mdx when README.md is absent', async () => {
+      const { handler } = makeHandler(
+        [makeDs('repo')],
+        [],
+        {},
+        { 'README.mdx': '# Docs' },
+        [],
+        [],
+        { '': [{ name: 'README.mdx', path: 'README.mdx', type: 'file' }] },
+      );
+
+      const result = await handler.handleGetReadme(
+        { input: { repository: 'test/repo' } } as any,
+        dummyToken as any,
+      );
+
+      expect(result.parts[0].value).toContain('`README.mdx`');
+    });
+
+    it('falls back to case-insensitive readme.md when needed', async () => {
+      const { handler } = makeHandler(
+        [makeDs('repo')],
+        [],
+        {},
+        { 'readme.md': '# Lowercase' },
+        [],
+        [],
+        { '': [{ name: 'readme.md', path: 'readme.md', type: 'file' }] },
+      );
+
+      const result = await handler.handleGetReadme(
+        { input: { repository: 'test/repo' } } as any,
+        dummyToken as any,
+      );
+
+      expect(result.parts[0].value).toContain('`readme.md`');
+    });
+
+    it('returns the scoped README for an exact path', async () => {
+      const { handler, fetcher } = makeHandler(
+        [makeDs('repo')],
+        [],
+        {},
+        { 'packages/core/README.md': '# Core' },
+        [],
+        [],
+        { 'packages/core': [{ name: 'README.md', path: 'packages/core/README.md', type: 'file' }] },
+      );
+
+      const result = await handler.handleGetReadme(
+        { input: { repository: 'test/repo', path: 'packages/core/' } } as any,
+        dummyToken as any,
+      );
+
+      expect(fetcher.getDirectoryContents).toHaveBeenCalledWith('test', 'repo', 'packages/core', 'main');
+      expect(result.parts[0].value).toContain('scope `packages/core`');
+      expect(result.parts[0].value).toContain('`packages/core/README.md`');
+    });
+
+    it('uses deterministic candidate priority when multiple README-like files exist', async () => {
+      const { handler, fetcher } = makeHandler(
+        [makeDs('repo')],
+        [],
+        {},
+        { 'README.md': '# Preferred' },
+        [],
+        [],
+        {
+          '': [
+            { name: 'README.txt', path: 'README.txt', type: 'file' },
+            { name: 'readme.md', path: 'readme.md', type: 'file' },
+            { name: 'README.md', path: 'README.md', type: 'file' },
+          ],
+        },
+      );
+
+      await handler.handleGetReadme(
+        { input: { repository: 'test/repo' } } as any,
+        dummyToken as any,
+      );
+
+      expect(fetcher.getFileContents).toHaveBeenCalledWith('test', 'repo', 'README.md', 'main');
+    });
+
+    it('returns a clear message when no README exists in scope', async () => {
+      const { handler } = makeHandler(
+        [makeDs('repo')],
+        [],
+        {},
+        {},
+        [],
+        [],
+        { 'packages/missing': [{ name: 'index.ts', path: 'packages/missing/index.ts', type: 'file' }] },
+      );
+
+      const result = await handler.handleGetReadme(
+        { input: { repository: 'test/repo', path: 'packages/missing' } } as any,
+        dummyToken as any,
+      );
+
+      expect(result.parts[0].value).toContain('No README found');
+      expect(result.parts[0].value).toContain('packages/missing');
+      expect(result.parts[0].value).toContain('yoink-file-tree');
+    });
+
+    it('returns repository-not-indexed when the repo cannot be resolved', async () => {
+      const { handler } = makeHandler([makeDs('repo')]);
+
+      const result = await handler.handleGetReadme(
+        { input: { repository: 'test/unknown' } } as any,
+        dummyToken as any,
+      );
+
+      expect(result.parts[0].value).toContain('Repository "test/unknown" is not indexed');
+    });
+
+    it('propagates fetch failures in the existing tool style', async () => {
+      const { handler } = makeHandler(
+        [makeDs('repo')],
+        [],
+        {},
+        {},
+        [],
+        [],
+        { '': new Error('Cannot access test/repo: insufficient token permissions.') },
+      );
+
+      const result = await handler.handleGetReadme(
+        { input: { repository: 'test/repo' } } as any,
+        dummyToken as any,
+      );
+
+      expect(result.parts[0].value).toContain('Get README failed');
+      expect(result.parts[0].value).toContain('insufficient token permissions');
+    });
+
+    it('rejects oversized README responses consistently', async () => {
+      const { handler } = makeHandler(
+        [makeDs('repo')],
+        [],
+        {},
+        { 'README.md': 'x'.repeat(500_001) },
+        [],
+        [],
+        { '': [{ name: 'README.md', path: 'README.md', type: 'file' }] },
+      );
+
+      const result = await handler.handleGetReadme(
+        { input: { repository: 'test/repo' } } as any,
+        dummyToken as any,
+      );
+
+      expect(result.parts[0].value).toContain('too large');
+      expect(result.parts[0].value).toContain('yoink-get-files');
+    });
+
+    it('rejects binary README responses consistently', async () => {
+      const { handler } = makeHandler(
+        [makeDs('repo')],
+        [],
+        {},
+        { 'README.pdf': 'binary' },
+        [],
+        [],
+        { '': [{ name: 'README.pdf', path: 'README.pdf', type: 'file' }] },
+      );
+
+      const result = await handler.handleGetReadme(
+        { input: { repository: 'test/repo' } } as any,
+        dummyToken as any,
+      );
+
+      expect(result.parts[0].value).toContain('is a binary file');
+      expect(result.parts[0].value).toContain('.pdf');
     });
   });
 

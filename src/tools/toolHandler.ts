@@ -10,6 +10,7 @@ import {
   buildSearchPayload,
   normalizeSearchPageSize,
 } from './searchPayload';
+import type { GitHubContentEntry } from '../sources/github/githubFetcher';
 
 const MAX_FILE_BYTES = 500_000;
 const MAX_FILES = 10;
@@ -240,6 +241,78 @@ export class ToolHandler {
     return new vscode.LanguageModelToolResult([
       new vscode.LanguageModelTextPart(summary + sections.join('\n\n')),
     ]);
+  }
+
+  async handleGetReadme(
+    options: vscode.LanguageModelToolInvocationOptions<{
+      repository: string;
+      path?: string;
+    }>,
+    _token: vscode.CancellationToken,
+  ): Promise<vscode.LanguageModelToolResult> {
+    const sources = this.getReadySources(options.input.repository);
+    if (typeof sources === 'string') {
+      return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(sources)]);
+    }
+
+    const ds = sources[0];
+    const scopePath = normalizeReadmeScope(options.input.path);
+    let entries: GitHubContentEntry[];
+    try {
+      entries = await this.fetcher.getDirectoryContents(ds.owner, ds.repo, scopePath, ds.branch);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return new vscode.LanguageModelToolResult([
+        new vscode.LanguageModelTextPart(`Get README failed: ${message}`),
+      ]);
+    }
+
+    const resolvedPath = resolveReadmePath(entries);
+    if (!resolvedPath) {
+      const location = scopePath ? `directory "${scopePath}"` : 'repository root';
+      return new vscode.LanguageModelToolResult([
+        new vscode.LanguageModelTextPart(
+          `No README found in the ${location} of ${ds.owner}/${ds.repo}@${ds.branch}. ` +
+          'Use yoink-file-tree to inspect available files and directories.',
+        ),
+      ]);
+    }
+
+    try {
+      const raw = await this.fetcher.getFileContents(ds.owner, ds.repo, resolvedPath, ds.branch);
+      const binaryExt = getBinaryExtension(resolvedPath);
+      if (binaryExt) {
+        return new vscode.LanguageModelToolResult([
+          new vscode.LanguageModelTextPart(
+            `README "${resolvedPath}" in ${ds.owner}/${ds.repo}@${ds.branch} is a binary file (.${binaryExt}).`,
+          ),
+        ]);
+      }
+      if (raw.length > MAX_FILE_BYTES) {
+        return new vscode.LanguageModelToolResult([
+          new vscode.LanguageModelTextPart(
+            `README "${resolvedPath}" in ${ds.owner}/${ds.repo}@${ds.branch} is too large ` +
+            `(${Math.round(raw.length / 1024)} KB). Use yoink-get-files with startLine/endLine to fetch a specific section.`,
+          ),
+        ]);
+      }
+
+      const lines = raw.split('\n').length;
+      const lang = langHint(resolvedPath);
+      const scopeLabel = scopePath ? ` · scope \`${scopePath}\`` : '';
+      return new vscode.LanguageModelToolResult([
+        new vscode.LanguageModelTextPart(
+          `**${ds.owner}/${ds.repo}** · Branch: \`${ds.branch}\` · \`${resolvedPath}\`${scopeLabel}\n` +
+          `Lines 1–${lines} of ${lines}\n\n` +
+          `\`\`\`${lang}\n${raw}\n\`\`\``,
+        ),
+      ]);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return new vscode.LanguageModelToolResult([
+        new vscode.LanguageModelTextPart(`Get README failed: ${message}`),
+      ]);
+    }
   }
 
   async handleListWorkflows(
@@ -514,6 +587,53 @@ function decodeCursor(cursor?: string): SearchCursor | null {
   } catch {
     return null;
   }
+}
+
+function normalizeReadmeScope(path?: string): string {
+  return path
+    ? path
+      .replace(/^\/+/, '')
+      .replace(/\/+$/, '')
+    : '';
+}
+
+function resolveReadmePath(entries: GitHubContentEntry[]): string | undefined {
+  const files = entries.filter((entry) => entry.type === 'file');
+  const byName = new Map(files.map((entry) => [entry.name, entry.path]));
+
+  for (const preferred of ['README.md', 'README.mdx']) {
+    const match = byName.get(preferred);
+    if (match) return match;
+  }
+
+  const exactOther = files
+    .filter((entry) => entry.name.startsWith('README.') && entry.name !== 'README.md' && entry.name !== 'README.mdx')
+    .sort((a, b) => a.name.localeCompare(b.name));
+  if (exactOther.length > 0) return exactOther[0].path;
+
+  const caseInsensitive = files
+    .filter((entry) => entry.name.toLowerCase().startsWith('readme.'))
+    .sort((a, b) => compareCaseInsensitiveReadmes(a.name, b.name));
+  if (caseInsensitive.length > 0) return caseInsensitive[0].path;
+
+  return undefined;
+}
+
+function compareCaseInsensitiveReadmes(a: string, b: string): number {
+  return rankReadmeName(a) - rankReadmeName(b) || a.localeCompare(b);
+}
+
+function rankReadmeName(name: string): number {
+  const lower = name.toLowerCase();
+  if (lower === 'readme.md') return 0;
+  if (lower === 'readme.mdx') return 1;
+  if (lower.startsWith('readme.')) return 2;
+  return 3;
+}
+
+function getBinaryExtension(filePath: string): string | undefined {
+  const ext = filePath.split('.').pop()?.toLowerCase() ?? '';
+  return BINARY_EXTENSIONS.has(ext) ? ext : undefined;
 }
 
 function buildContentMap(chunks: import('../storage/chunkStore').ChunkRecord[]): Map<string, string> {

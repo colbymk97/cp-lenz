@@ -21,6 +21,7 @@ Index any GitHub repository into a local vector database and expose it as a Copi
 - Vector search via `sqlite-vec` (brute-force KNN, fully local)
 - Automatic delta sync — only re-indexes changed files since last sync
 - Multiple tools, each scoped to a subset of data sources
+- First-class README retrieval for quick repository or package orientation
 - OpenAI-compatible embedding API (defaults to `text-embedding-3-small`)
 
 ### Repo types
@@ -69,6 +70,8 @@ work without manual configuration.
 2. Run **Yoink: Set OpenAI API Key** from the command palette
 3. Open the Yoink sidebar and add a repository
 4. Wait for indexing to complete, then ask Copilot about it
+
+For unfamiliar repositories, start with `yoink-get-readme` to fetch the repo's primary README, or pass a `path` like `packages/core` to fetch the README for a specific package or subtree before searching more broadly.
 
 ## Installing Locally
 

@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { ToolHandler } from './toolHandler';
 import { GET_FILES_TOOL } from './getFileTool';
+import { GET_README_TOOL } from './readmeTool';
 import { LIST_WORKFLOWS_TOOL, LIST_ACTIONS_TOOL } from './cicdTool';
 import { FILE_TREE_TOOL } from './fileTreeTool';
 import { Logger } from '../util/logger';
@@ -17,6 +18,7 @@ export class ToolManager implements vscode.Disposable {
     this.registerGlobalSearchTool();
     this.registerListTool();
     this.registerGetFilesTool();
+    this.registerGetReadmeTool();
     this.registerListWorkflowsTool();
     this.registerListActionsTool();
     this.registerFileTreeTool();
@@ -76,6 +78,25 @@ export class ToolManager implements vscode.Disposable {
 
     this.registeredTools.set('__getfiles__', disposable);
     this.logger.info('Registered get-files tool');
+  }
+
+  private registerGetReadmeTool(): void {
+    if (this.registeredTools.has('__getreadme__')) return;
+
+    const disposable = vscode.lm.registerTool(GET_README_TOOL.name, {
+      invoke: async (options, token) => {
+        return this.toolHandler.handleGetReadme(
+          options as vscode.LanguageModelToolInvocationOptions<{
+            repository: string;
+            path?: string;
+          }>,
+          token,
+        );
+      },
+    });
+
+    this.registeredTools.set('__getreadme__', disposable);
+    this.logger.info('Registered get-readme tool');
   }
 
   private registerListWorkflowsTool(): void {
