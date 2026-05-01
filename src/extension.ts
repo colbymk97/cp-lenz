@@ -165,18 +165,6 @@ export function activate(context: vscode.ExtensionContext): void {
 
   void embeddingManager.initialize();
 
-  // Silently install Copilot agent files on first activation
-  const primaryFolder = vscode.workspace.workspaceFolders?.[0];
-  if (primaryFolder) {
-    agentInstaller.isInstalled(primaryFolder.uri).then((installed) => {
-      if (!installed) {
-        agentInstaller.install(primaryFolder.uri).catch((err) => {
-          logger.error(`Failed to install agent files: ${err}`);
-        });
-      }
-    });
-  }
-
   logger.info('Yoink activated');
 }
 
