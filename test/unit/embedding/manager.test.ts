@@ -85,6 +85,12 @@ vi.mock('../../../src/storage/database', () => ({
 
 import { EmbeddingManager } from '../../../src/embedding/manager';
 
+async function flushMicrotasks(): Promise<void> {
+  for (let i = 0; i < 5; i++) {
+    await Promise.resolve();
+  }
+}
+
 describe('EmbeddingManager', () => {
   let registry: any;
   let embeddingStore: any;
@@ -252,6 +258,40 @@ describe('EmbeddingManager', () => {
     );
     expect(resetEmbeddingsTable).toHaveBeenCalledWith(expect.anything(), 3072);
     expect(queueReindexAll).toHaveBeenCalled();
+  });
+
+  it('runs a follow-up connection probe when one was requested while in-flight', async () => {
+    let pendingResolve: ((v: number[][]) => void) | undefined;
+    const embed = vi.fn().mockImplementation(() => new Promise<number[][]>((resolve) => {
+      pendingResolve = resolve;
+    }));
+    registry.getProvider = vi.fn().mockResolvedValue({ embed });
+
+    const manager = new EmbeddingManager(
+      registry,
+      {} as any,
+      embeddingStore,
+      getDataSources,
+      queueReindexAll,
+    );
+
+    const first = (manager as any).testConnection() as Promise<void>;
+    await flushMicrotasks();
+    expect(embed).toHaveBeenCalledTimes(1);
+
+    const queued = (manager as any).testConnection() as Promise<void>;
+    await flushMicrotasks();
+    expect(embed).toHaveBeenCalledTimes(1);
+
+    pendingResolve?.([[1]]);
+    await first;
+    await queued;
+    await flushMicrotasks();
+    expect(embed).toHaveBeenCalledTimes(2);
+
+    pendingResolve?.([[1]]);
+    await flushMicrotasks();
+    expect(embed).toHaveBeenCalledTimes(2);
   });
 
   it('reports stale status when the stored fingerprint no longer matches', async () => {

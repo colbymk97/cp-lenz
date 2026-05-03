@@ -207,6 +207,22 @@ describe('DataSourceFileItem', () => {
 });
 
 
+describe('DataSourceTypeGroupItem', () => {
+  it('renders an unknown repo type without crashing', () => {
+    const item = new DataSourceTypeGroupItem('made-up-type' as any, 2);
+    expect(item.label).toBe('Made Up Type');
+    expect(item.description).toBe('2');
+    expect((item.iconPath as any).id).toBe('folder');
+    expect(item.tooltip).toContain('Made Up Type');
+  });
+
+  it('uses preset displayName for known types', () => {
+    const item = new DataSourceTypeGroupItem('documentation', 1);
+    expect(item.label).toBe('Documentation / standards');
+    expect(item.description).toBe('1');
+  });
+});
+
 describe('groupDataSourcesByType', () => {
   it('orders preset types in the canonical order and drops empty ones', () => {
     const result = groupDataSourcesByType([

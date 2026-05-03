@@ -53,6 +53,7 @@ export class EmbeddingManager implements vscode.Disposable {
   private connectionStatus: EmbeddingConnectionStatus = 'unknown';
   private connectionError?: string;
   private connectionTestInFlight?: Promise<void>;
+  private connectionTestPending = false;
 
   constructor(
     private readonly registry: EmbeddingProviderRegistry,
@@ -79,6 +80,7 @@ export class EmbeddingManager implements vscode.Disposable {
 
   private async testConnection(): Promise<void> {
     if (this.connectionTestInFlight) {
+      this.connectionTestPending = true;
       return this.connectionTestInFlight;
     }
 
@@ -105,6 +107,10 @@ export class EmbeddingManager implements vscode.Disposable {
 
     this.connectionTestInFlight = run().finally(() => {
       this.connectionTestInFlight = undefined;
+      if (this.connectionTestPending) {
+        this.connectionTestPending = false;
+        void this.testConnection();
+      }
     });
     return this.connectionTestInFlight;
   }

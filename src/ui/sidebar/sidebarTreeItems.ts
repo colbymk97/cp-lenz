@@ -39,13 +39,22 @@ export class DataSourceTypeGroupItem extends vscode.TreeItem {
     public readonly type: DataSourceType,
     public readonly count: number,
   ) {
-    const preset = REPO_TYPE_PRESETS[type];
-    super(preset.displayName, vscode.TreeItemCollapsibleState.Expanded);
+    const displayName = REPO_TYPE_PRESETS[type]?.displayName ?? humanizeType(type);
+    super(displayName, vscode.TreeItemCollapsibleState.Expanded);
     this.description = `${count}`;
     this.contextValue = 'dataSourceTypeGroup';
     this.iconPath = new vscode.ThemeIcon(TYPE_GROUP_ICONS[type] ?? 'folder');
-    this.tooltip = `${preset.displayName} · ${count} ${count === 1 ? 'repo' : 'repos'}`;
+    this.tooltip = `${displayName} · ${count} ${count === 1 ? 'repo' : 'repos'}`;
   }
+}
+
+function humanizeType(type: string): string {
+  if (!type) return 'Unknown';
+  return type
+    .split(/[-_]/)
+    .filter(Boolean)
+    .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
+    .join(' ');
 }
 
 export class DataSourceTreeItem extends vscode.TreeItem {
