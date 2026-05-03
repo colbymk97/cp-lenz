@@ -35,17 +35,23 @@ vi.mock('vscode', () => ({
 }));
 
 import {
+  DataSourceTypeGroupItem,
   DataSourceTreeItem,
   DataSourceInfoItem,
   DataSourceFileItem,
   EmbeddingTreeItem,
 } from '../../../../src/ui/sidebar/sidebarTreeItems';
-import { DataSourceTreeProvider, EmbeddingTreeProvider } from '../../../../src/ui/sidebar/sidebarProvider';
+import {
+  DataSourceTreeProvider,
+  EmbeddingTreeProvider,
+  groupDataSourcesByType,
+} from '../../../../src/ui/sidebar/sidebarProvider';
 import { DataSourceConfig } from '../../../../src/config/configSchema';
 
 function makeDs(overrides: Partial<DataSourceConfig> = {}): DataSourceConfig {
   return {
     id: 'ds-1', repoUrl: '', owner: 'acme', repo: 'widgets', branch: 'main',
+    type: 'documentation',
     includePatterns: [], excludePatterns: [], syncSchedule: 'manual',
     lastSyncedAt: null, lastSyncCommitSha: null, status: 'ready',
     ...overrides,
@@ -201,6 +207,36 @@ describe('DataSourceFileItem', () => {
 });
 
 
+describe('groupDataSourcesByType', () => {
+  it('orders preset types in the canonical order and drops empty ones', () => {
+    const result = groupDataSourcesByType([
+      makeDs({ id: '1', type: 'general' }),
+      makeDs({ id: '2', type: 'documentation' }),
+      makeDs({ id: '3', type: 'github-actions-library' }),
+      makeDs({ id: '4', type: 'cicd-workflows' }),
+    ]);
+
+    expect(result.map((g) => g.type)).toEqual([
+      'documentation',
+      'cicd-workflows',
+      'github-actions-library',
+      'general',
+    ]);
+  });
+
+  it('sorts repos within a group alphabetically by owner/repo', () => {
+    const result = groupDataSourcesByType([
+      makeDs({ id: '1', type: 'documentation', owner: 'z', repo: 'z' }),
+      makeDs({ id: '2', type: 'documentation', owner: 'a', repo: 'a' }),
+      makeDs({ id: '3', type: 'documentation', owner: 'a', repo: 'b' }),
+    ]);
+
+    expect(result[0].sources.map((d) => `${d.owner}/${d.repo}`)).toEqual([
+      'a/a', 'a/b', 'z/z',
+    ]);
+  });
+});
+
 describe('DataSourceTreeProvider', () => {
   function makeChunkStore(stats = { fileCount: 0, chunkCount: 0, totalTokens: 0 }, fileStats: any[] = []) {
     return {
@@ -216,19 +252,58 @@ describe('DataSourceTreeProvider', () => {
     } as any;
   }
 
-  it('returns data source tree items from config at root', () => {
+  it('returns type-group items at root, ordered docs/workflows/actions first', () => {
     const changeCallbacks: Array<() => void> = [];
     const configManager = {
-      getDataSources: () => [makeDs(), makeDs({ id: 'ds-2', owner: 'other', repo: 'lib' })],
+      getDataSources: () => [
+        makeDs({ id: 'ds-actions', type: 'github-actions-library', repo: 'actions' }),
+        makeDs({ id: 'ds-docs', type: 'documentation', repo: 'docs' }),
+        makeDs({ id: 'ds-cicd', type: 'cicd-workflows', repo: 'pipelines' }),
+      ],
       onDidChange: (cb: () => void) => { changeCallbacks.push(cb); return { dispose: vi.fn() }; },
     } as any;
 
     const provider = new DataSourceTreeProvider(configManager, makeChunkStore(), makeProgressTracker());
     const children = provider.getChildren();
 
+    expect(children).toHaveLength(3);
+    expect(children[0]).toBeInstanceOf(DataSourceTypeGroupItem);
+    expect((children[0] as DataSourceTypeGroupItem).type).toBe('documentation');
+    expect((children[1] as DataSourceTypeGroupItem).type).toBe('cicd-workflows');
+    expect((children[2] as DataSourceTypeGroupItem).type).toBe('github-actions-library');
+  });
+
+  it('omits type groups that have no data sources', () => {
+    const configManager = {
+      getDataSources: () => [makeDs({ type: 'documentation' })],
+      onDidChange: () => ({ dispose: vi.fn() }),
+    } as any;
+
+    const provider = new DataSourceTreeProvider(configManager, makeChunkStore(), makeProgressTracker());
+    const children = provider.getChildren();
+
+    expect(children).toHaveLength(1);
+    expect((children[0] as DataSourceTypeGroupItem).type).toBe('documentation');
+    expect(children[0].description).toBe('1');
+  });
+
+  it('expands a type-group node into its data sources', () => {
+    const configManager = {
+      getDataSources: () => [
+        makeDs({ id: 'ds-1', type: 'documentation', owner: 'b', repo: 'beta' }),
+        makeDs({ id: 'ds-2', type: 'documentation', owner: 'a', repo: 'alpha' }),
+        makeDs({ id: 'ds-other', type: 'cicd-workflows', repo: 'wf' }),
+      ],
+      onDidChange: () => ({ dispose: vi.fn() }),
+    } as any;
+
+    const provider = new DataSourceTreeProvider(configManager, makeChunkStore(), makeProgressTracker());
+    const group = new DataSourceTypeGroupItem('documentation', 2);
+    const children = provider.getChildren(group);
+
     expect(children).toHaveLength(2);
-    expect(children[0].label).toBe('acme/widgets');
-    expect(children[1].label).toBe('other/lib');
+    expect(children[0].label).toBe('a/alpha');
+    expect(children[1].label).toBe('b/beta');
   });
 
   it('returns info and file items when expanding a ready data source', () => {
@@ -311,7 +386,7 @@ describe('DataSourceTreeProvider', () => {
 });
 
 describe('EmbeddingTreeItem', () => {
-  it('shows configured state', () => {
+  it('shows configured state with green icon when connection succeeded', () => {
     const item = new EmbeddingTreeItem({
       provider: 'openai',
       providerLabel: 'OpenAI',
@@ -328,12 +403,63 @@ describe('EmbeddingTreeItem', () => {
       statusLabel: 'Configured',
       actionCommand: 'yoink.manageEmbeddings',
       tooltip: 'configured',
+      connectionStatus: 'success',
     });
 
     expect(item.label).toBe('OpenAI: text-embedding-3-small');
     expect(item.description).toContain('Configured');
     expect(item.contextValue).toBe('embeddingReady');
     expect(item.command?.command).toBe('yoink.manageEmbeddings');
+    expect((item.iconPath as any).id).toBe('circle-filled');
+    expect((item.iconPath as any).color?.id).toBe('testing.runAction');
+  });
+
+  it('shows red circle when connection test failed', () => {
+    const item = new EmbeddingTreeItem({
+      provider: 'openai',
+      providerLabel: 'OpenAI',
+      identifier: 'text-embedding-3-small',
+      identifierLabel: 'Model',
+      dimensions: 1536,
+      requiresApiKey: true,
+      hasApiKey: true,
+      missingFields: [],
+      isConfigured: true,
+      fingerprint: 'fp-openai',
+      isRebuilding: false,
+      isStale: false,
+      statusLabel: 'Configured',
+      actionCommand: 'yoink.manageEmbeddings',
+      tooltip: 'configured',
+      connectionStatus: 'failed',
+      connectionError: 'auth failed',
+    });
+
+    expect((item.iconPath as any).id).toBe('circle-filled');
+    expect((item.iconPath as any).color?.id).toBe('errorForeground');
+  });
+
+  it('falls back to neutral icon when connection status is unknown', () => {
+    const item = new EmbeddingTreeItem({
+      provider: 'local',
+      providerLabel: 'Local',
+      identifier: 'nomic-embed-text',
+      identifierLabel: 'Model',
+      dimensions: 768,
+      requiresApiKey: false,
+      hasApiKey: false,
+      missingFields: [],
+      isConfigured: true,
+      fingerprint: 'fp-local',
+      isRebuilding: false,
+      isStale: false,
+      statusLabel: 'Configured',
+      actionCommand: 'yoink.manageEmbeddings',
+      tooltip: 'configured',
+      connectionStatus: 'unknown',
+    });
+
+    expect((item.iconPath as any).id).toBe('symbol-misc');
   });
 
   it('shows stale state as rebuildable', () => {
@@ -353,11 +479,13 @@ describe('EmbeddingTreeItem', () => {
       statusLabel: 'Rebuild required',
       actionCommand: 'yoink.rebuildEmbeddings',
       tooltip: 'rebuild required',
+      connectionStatus: 'success',
     });
 
     expect(item.description).toContain('Rebuild required');
     expect(item.contextValue).toBe('embeddingStale');
     expect(item.command?.command).toBe('yoink.rebuildEmbeddings');
+    expect((item.iconPath as any).id).toBe('warning');
   });
 });
 
@@ -380,6 +508,7 @@ describe('EmbeddingTreeProvider', () => {
         statusLabel: 'Configured',
         actionCommand: 'yoink.manageEmbeddings',
         tooltip: 'configured',
+        connectionStatus: 'success',
       }),
       onDidChange: (listener: () => void) => ({ dispose: vi.fn() }),
     } as any;

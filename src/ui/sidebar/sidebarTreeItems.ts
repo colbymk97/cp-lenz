@@ -4,8 +4,10 @@ import { DataSourceStats, FileStats } from '../../storage/chunkStore';
 import { IndexingProgress } from '../../ingestion/progressTracker';
 import { getPricingForModel, formatCost } from '../../embedding/pricing';
 import { EmbeddingStatus } from '../../embedding/manager';
+import { DataSourceType, REPO_TYPE_PRESETS } from '../../config/repoTypePresets';
 
 export type SidebarTreeItem =
+  | DataSourceTypeGroupItem
   | DataSourceTreeItem
   | DataSourceInfoItem
   | DataSourceFileItem
@@ -21,6 +23,29 @@ const STATUS_ICONS: Record<string, string> = {
 
 function formatNumber(n: number): string {
   return n.toLocaleString('en-US');
+}
+
+const TYPE_GROUP_ICONS: Record<DataSourceType, string> = {
+  documentation: 'book',
+  'cicd-workflows': 'play-circle',
+  'github-actions-library': 'package',
+  'source-code': 'code',
+  general: 'database',
+  'openapi-specs': 'json',
+};
+
+export class DataSourceTypeGroupItem extends vscode.TreeItem {
+  constructor(
+    public readonly type: DataSourceType,
+    public readonly count: number,
+  ) {
+    const preset = REPO_TYPE_PRESETS[type];
+    super(preset.displayName, vscode.TreeItemCollapsibleState.Expanded);
+    this.description = `${count}`;
+    this.contextValue = 'dataSourceTypeGroup';
+    this.iconPath = new vscode.ThemeIcon(TYPE_GROUP_ICONS[type] ?? 'folder');
+    this.tooltip = `${preset.displayName} · ${count} ${count === 1 ? 'repo' : 'repos'}`;
+  }
 }
 
 export class DataSourceTreeItem extends vscode.TreeItem {
@@ -162,6 +187,16 @@ export class EmbeddingTreeItem extends vscode.TreeItem {
       this.iconPath = new vscode.ThemeIcon(
         'warning',
         new vscode.ThemeColor('problemsWarningIcon.foreground'),
+      );
+    } else if (status.connectionStatus === 'failed') {
+      this.iconPath = new vscode.ThemeIcon(
+        'circle-filled',
+        new vscode.ThemeColor('errorForeground'),
+      );
+    } else if (status.connectionStatus === 'success') {
+      this.iconPath = new vscode.ThemeIcon(
+        'circle-filled',
+        new vscode.ThemeColor('testing.runAction'),
       );
     } else {
       this.iconPath = new vscode.ThemeIcon('symbol-misc');

@@ -158,12 +158,12 @@
     "views": {
       "yoink": [
         {
-          "id": "yoink.embedding",
-          "name": "Embedding"
-        },
-        {
           "id": "yoink.dataSources",
           "name": "Data Sources"
+        },
+        {
+          "id": "yoink.embedding",
+          "name": "Embedding"
         }
       ]
     },

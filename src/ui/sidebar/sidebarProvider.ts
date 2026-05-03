@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { ConfigManager } from '../../config/configManager';
 import {
   SidebarTreeItem,
+  DataSourceTypeGroupItem,
   DataSourceTreeItem,
   DataSourceInfoItem,
   DataSourceFileItem,
@@ -11,6 +12,51 @@ import { SETTING_KEYS } from '../../config/settingsSchema';
 import { ChunkStore } from '../../storage/chunkStore';
 import { ProgressTracker } from '../../ingestion/progressTracker';
 import { EmbeddingManager } from '../../embedding/manager';
+import { DataSourceConfig } from '../../config/configSchema';
+import { DataSourceType } from '../../config/repoTypePresets';
+
+const TYPE_GROUP_ORDER: DataSourceType[] = [
+  'documentation',
+  'cicd-workflows',
+  'github-actions-library',
+  'source-code',
+  'general',
+  'openapi-specs',
+];
+
+export function groupDataSourcesByType(
+  sources: readonly DataSourceConfig[],
+): Array<{ type: DataSourceType; sources: DataSourceConfig[] }> {
+  const buckets = new Map<DataSourceType, DataSourceConfig[]>();
+  for (const ds of sources) {
+    const list = buckets.get(ds.type);
+    if (list) {
+      list.push(ds);
+    } else {
+      buckets.set(ds.type, [ds]);
+    }
+  }
+  const groups: Array<{ type: DataSourceType; sources: DataSourceConfig[] }> = [];
+  for (const type of TYPE_GROUP_ORDER) {
+    const list = buckets.get(type);
+    if (list && list.length > 0) {
+      groups.push({ type, sources: sortRepos(list) });
+      buckets.delete(type);
+    }
+  }
+  for (const [type, list] of buckets) {
+    if (list.length > 0) {
+      groups.push({ type, sources: sortRepos(list) });
+    }
+  }
+  return groups;
+}
+
+function sortRepos(list: DataSourceConfig[]): DataSourceConfig[] {
+  return [...list].sort((a, b) =>
+    `${a.owner}/${a.repo}`.localeCompare(`${b.owner}/${b.repo}`),
+  );
+}
 
 export class DataSourceTreeProvider
   implements vscode.TreeDataProvider<SidebarTreeItem>
@@ -37,7 +83,17 @@ export class DataSourceTreeProvider
 
   getChildren(element?: SidebarTreeItem): SidebarTreeItem[] {
     if (!element) {
-      return this.configManager.getDataSources().map(
+      const groups = groupDataSourcesByType(this.configManager.getDataSources());
+      return groups.map(
+        (g) => new DataSourceTypeGroupItem(g.type, g.sources.length),
+      );
+    }
+
+    if (element instanceof DataSourceTypeGroupItem) {
+      const groups = groupDataSourcesByType(this.configManager.getDataSources());
+      const group = groups.find((g) => g.type === element.type);
+      if (!group) return [];
+      return group.sources.map(
         (ds) => new DataSourceTreeItem(
           ds,
           this.progressTracker.get(ds.id),

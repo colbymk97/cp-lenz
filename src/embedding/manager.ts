@@ -23,12 +23,16 @@ interface EmbeddingAssessment {
   isStale: boolean;
 }
 
+export type EmbeddingConnectionStatus = 'unknown' | 'success' | 'failed';
+
 export interface EmbeddingStatus extends EmbeddingConfigurationState {
   isRebuilding: boolean;
   isStale: boolean;
   statusLabel: string;
   actionCommand: 'yoink.manageEmbeddings' | 'yoink.rebuildEmbeddings';
   tooltip: string;
+  connectionStatus: EmbeddingConnectionStatus;
+  connectionError?: string;
 }
 
 interface ManageEmbeddingResult {
@@ -46,6 +50,9 @@ export class EmbeddingManager implements vscode.Disposable {
   private rebuilding = false;
   private suppressConfigEvents = false;
   private stalePromptKey?: string;
+  private connectionStatus: EmbeddingConnectionStatus = 'unknown';
+  private connectionError?: string;
+  private connectionTestInFlight?: Promise<void>;
 
   constructor(
     private readonly registry: EmbeddingProviderRegistry,
@@ -67,6 +74,39 @@ export class EmbeddingManager implements vscode.Disposable {
 
   async initialize(): Promise<void> {
     await this.handleConfigurationDrift('startup');
+    void this.testConnection();
+  }
+
+  private async testConnection(): Promise<void> {
+    if (this.connectionTestInFlight) {
+      return this.connectionTestInFlight;
+    }
+
+    const run = async (): Promise<void> => {
+      const config = await this.registry.getConfigurationState();
+      if (!config.isConfigured) {
+        this.connectionStatus = 'unknown';
+        this.connectionError = undefined;
+        this.refresh();
+        return;
+      }
+
+      try {
+        const provider = await this.registry.getProvider();
+        await provider.embed(['ping']);
+        this.connectionStatus = 'success';
+        this.connectionError = undefined;
+      } catch (e) {
+        this.connectionStatus = 'failed';
+        this.connectionError = e instanceof Error ? e.message : String(e);
+      }
+      this.refresh();
+    };
+
+    this.connectionTestInFlight = run().finally(() => {
+      this.connectionTestInFlight = undefined;
+    });
+    return this.connectionTestInFlight;
   }
 
   async ensureConfigured(): Promise<boolean> {
@@ -199,6 +239,7 @@ export class EmbeddingManager implements vscode.Disposable {
     } finally {
       this.rebuilding = false;
       this.refresh();
+      void this.testConnection();
     }
   }
 
@@ -233,6 +274,16 @@ export class EmbeddingManager implements vscode.Disposable {
       lines.push('API key: configured');
     }
 
+    if (assessment.config.isConfigured) {
+      if (this.connectionStatus === 'success') {
+        lines.push('Connection: OK');
+      } else if (this.connectionStatus === 'failed') {
+        lines.push(`Connection: failed${this.connectionError ? ` — ${this.connectionError}` : ''}`);
+      } else {
+        lines.push('Connection: not tested');
+      }
+    }
+
     return {
       ...assessment.config,
       isRebuilding: this.rebuilding,
@@ -240,6 +291,8 @@ export class EmbeddingManager implements vscode.Disposable {
       statusLabel,
       actionCommand,
       tooltip: lines.join('\n'),
+      connectionStatus: this.connectionStatus,
+      connectionError: this.connectionError,
     };
   }
 
@@ -257,8 +310,14 @@ export class EmbeddingManager implements vscode.Disposable {
     const assessment = await this.assessState();
 
     if (!assessment.config.isConfigured || !assessment.config.fingerprint) {
+      this.connectionStatus = 'unknown';
+      this.connectionError = undefined;
       this.refresh();
       return;
+    }
+
+    if (source !== 'startup') {
+      void this.testConnection();
     }
 
     if (!assessment.storedFingerprint) {
